@@ -1,252 +1,201 @@
-# 🛒 Hệ Thống E-Commerce Event-Driven Chuẩn Enterprise Với Apache Kafka (Phiên Bản Hoàn Thiện v2.0)
+# 🛒 Hệ Thống E-Commerce Event-Driven Microservices Với Apache Kafka (v2.0)
 
-Chào mừng bạn đến với project thực chiến kiến trúc **Hệ thống Thương Mại Điện Tử & Xử Lý Sự Kiện Thời Gian Thực (Event-Driven Architecture)** chuẩn doanh nghiệp, xây dựng trên nền tảng **Spring Boot**, **Apache Kafka (KRaft)**, **Kafka Streams**, **Transactional Outbox Pattern**, **Idempotent Consumer**, **Dead Letter Queue (DLQ) & Replay Engine**, cùng **Giao diện Mission Control Web Dashboard** trực quan.
+Chào mừng bạn đến với dự án **Hệ Thống Thương Mại Điện Tử Phân Tán (Event-Driven Microservices Architecture)** chuẩn doanh nghiệp, được xây dựng theo mô hình **Maven Multi-Module**, **Choreography-based Saga Pattern**, **Transactional Outbox**, **Idempotent Consumer**, **Kafka Streams Real-time Analytics**, và **API Gateway**.
 
 ---
 
-## 🏛️ 1. Sơ Đồ Kiến Trúc Hệ Thống Toàn Diện (System Architecture)
+## 🏛️ 1. Sơ Đồ Kiến Trúc Microservices (Architecture Diagram)
 
 ```mermaid
 flowchart TD
-    Client["Client / Web UI / Mobile App / Swagger"]
-    
-    subgraph OrderService ["1. Order Service (Transactional Outbox)"]
-        API["POST /api/orders"]
-        DB[("H2 Database\n- orders\n- outbox_events\n- processed_events\n- dead_letter_events")]
-        API -->|"Cùng 1 Transaction SQL\n(Chống Dual-Write)"| DB
-    end
-    
-    subgraph OutboxWorker ["2. Background Outbox Worker"]
-        Poller["OutboxPublisher\n(Mỗi 1s quét outbox PENDING)"]
-        DB --> Poller
-    end
-    
-    subgraph KafkaBroker ["3. Apache Kafka Cluster (KRaft Broker: 9092)"]
-        TopicOrders["Topic: order-events\n(Key: customerId, 3 Partitions)"]
-        TopicFraud["Topic: fraud-alerts\n(Key: customerId)"]
-        TopicDLT["Topic: order-events.DLT\n(Dead Letter Topic)"]
-        TopicPaid["Topic: payment-confirmed-events\n(Xác nhận thanh toán)"]
-    end
-    
-    Poller -->|"Idempotent Producer\n(Snappy, acks=all, Sync ACK)"| TopicOrders
-    Poller -.->|"Thất bại >= 5 lần"| OutboxFailed["FAILED_MAX_RETRIES\n(Lưu lỗi & Chờ Admin Replay)"]
-    
-    subgraph StreamEngine ["4. Kafka Streams Engine (Real-time Analytics)"]
-        Stream["FraudDetectionStream\n(Sliding Window 30s)"]
-        TopicOrders --> Stream
-        Stream -->|"Phát hiện >= 3 đơn HOẶC >= 50 triệu / 30s"| TopicFraud
+    Client["Client / Web UI / Mobile App"] --> Gateway["API Gateway (Port 8080)\n- Single Entry Point\n- Reverse Proxy & Routing\n- Mission Control Dashboard"]
+
+    subgraph ServiceMesh ["Cụm Dịch Vụ Microservices Độc Lập"]
+        Gateway -->|/api/orders| OrderSvc["1. Order Service (8081)\nDB: orderdb\n- Transactional Outbox Pattern\n- Saga Coordinator"]
+        Gateway -->|/api/inventory| InvSvc["2. Inventory Service (8082)\nDB: inventorydb\n- Quản lý tồn kho thực tế\n- Khóa & Xả hàng tồn kho"]
+        Gateway -->|/api/payments| PaySvc["3. Payment Service (8083)\nDB: paymentdb\n- Idempotent Payment Gateway\n- Kích hoạt lệnh bù trừ Saga"]
+        Gateway -->|/api/fraud| FraudSvc["4. Fraud Detection Service (8084)\n- Kafka Streams Engine\n- Sliding Window 30s Realtime"]
+        Gateway -->|/api/notifications| NotifSvc["5. Notification Service (8085)\n- Mô phỏng Email / SMS / Push Notif"]
     end
 
-    subgraph FraudGuard ["5. Fraud Defense System"]
-        FraudListener["FraudAlertsListener\n(fraud-monitoring-dashboard)"]
-        TopicFraud --> FraudListener
-        FraudListener -->|"Tự động đánh dấu đơn\nFRAUD_SUSPECTED"| DB
-    end
-    
-    subgraph PaymentService ["6. Payment & Inventory Service"]
-        Consumer["PaymentAndInventoryConsumer\n(payment-inventory-group)"]
-        TopicOrders --> Consumer
-        Consumer -->|"Kiểm tra eventId\n(Idempotent Guard)"| DB
-        Consumer -->|"Nếu thành công"| TopicPaid
-        Consumer -->|"Nếu lỗi kho / Poison Pill"| RetryHandler["DefaultErrorHandler\n(Retry 2 lần, giãn cách 1s)"]
-        RetryHandler -->|"Hết retry"| TopicDLT
+    subgraph KafkaCluster ["Apache Kafka Cluster (KRaft Broker 9092)"]
+        TopicOrderCreated["order-created-events"]
+        TopicInvReserved["inventory-reserved-events"]
+        TopicInvFailed["inventory-failed-events"]
+        TopicPaySuccess["payment-success-events"]
+        TopicPayFailed["payment-failed-events"]
+        TopicCompensate["inventory-release-events (Lệnh Bù Trừ)"]
+        TopicFraudAlert["fraud-alerts"]
     end
 
-    subgraph DltEngine ["7. Dead Letter Queue & Replay Engine"]
-        DltConsumer["OrderDltConsumer\n(Lưu audit & Đổi đơn -> FAILED_INVENTORY)"]
-        TopicDLT --> DltConsumer
-        DltConsumer --> DB
-        ReplayEngine["DLQ Replay Engine\n(Sửa hàng, cấp eventId mới & Re-emit)"]
-        DB -.-> ReplayEngine
-        ReplayEngine -.->|"Phát lại vào luồng tự động"| TopicOrders
-    end
+    OrderSvc -->|"1. Outbox Event"| TopicOrderCreated
+    TopicOrderCreated --> InvSvc
+    TopicOrderCreated --> FraudSvc
 
-    subgraph MissionControlUI ["8. Live Web Dashboard & Mission Control"]
-        WebUI["Interactive Dashboard\n(http://localhost:8080)"]
-        WebUI <-->|"REST API Polling / Trigger"| API
-    end
+    InvSvc -->|"2a. Kho đủ hàng"| TopicInvReserved
+    InvSvc -->|"2b. Kho hết hàng"| TopicInvFailed
 
-    Client --> API
-    Client --> WebUI
+    TopicInvReserved --> PaySvc
+    PaySvc -->|"3a. Thanh toán OK"| TopicPaySuccess
+    PaySvc -->|"3b. Thẻ lỗi/Hết tiền"| TopicPayFailed
+    PaySvc -->|"3c. Lệnh Bù Trừ (Xả kho)"| TopicCompensate
+    TopicCompensate --> InvSvc
+
+    TopicPaySuccess --> OrderSvc
+    TopicPaySuccess --> NotifSvc
+    TopicInvFailed --> OrderSvc
+    TopicPayFailed --> OrderSvc
+
+    FraudSvc -->|"Cảnh báo gian lận"| TopicFraudAlert
+    TopicFraudAlert --> OrderSvc
+    TopicFraudAlert --> NotifSvc
 ```
 
 ---
 
-## 💎 2. Các Kỹ Thuật Đỉnh Cao Được Triển Khai Trong Bản Hoàn Thiện v2.0
+## 💎 2. Các Kỹ Thuật Đỉnh Cao Trong Phiên Bản Microservices v2.0
 
 | Kỹ thuật / Pattern | Vấn đề trong thực tế | Giải pháp thực tế trong project v2.0 |
 | :--- | :--- | :--- |
-| **Transactional Outbox Pattern** | Khi User đặt hàng, nếu ghi DB xong mà gửi Kafka bị rớt mạng $\rightarrow$ Mất dữ liệu (*Dual-Write Problem*). | Ghi Order và Outbox Event vào **cùng 1 SQL Transaction**. Outbox Publisher quét định kỳ và gửi với xác nhận ACK đồng bộ (`.get(5s)`). Nếu lỗi sẽ retry và lưu `lastError`, đạt tối đa retry sẽ chuyển sang `FAILED_MAX_RETRIES`. |
-| **Idempotent Consumer** | Do Producer retry khi mất mạng, Consumer có thể nhận 1 event nhiều lần $\rightarrow$ Nguy cơ trừ tiền 2 lần. | Bảng `processed_events` lưu `eventId`. Nếu nhận lại event cũ, Consumer phát hiện và bỏ qua ngay lập tức, không trừ tiền, không xuất kho. |
-| **Kafka Streams (Windowing & Analytics)** | Cần phân tích dữ liệu dòng chảy tức thì thay vì truy vấn DB truyền thống. | Khởi tạo topology Kafka Streams gom nhóm theo `customerId` trong **Cửa sổ thời gian 30 giây**. Nếu $\ge 3$ đơn hàng hoặc tổng tiền $\ge 50$ triệu VND, bắn cảnh báo thời gian thực vào topic `fraud-alerts`. |
-| **Automated Fraud Defense** | Phát hiện gian lận nhưng không tự động xử lý. | `FraudAlertsListener` nhận tin từ `fraud-alerts` và ngay lập tức cập nhật trạng thái các đơn hàng của khách hàng thành `FRAUD_SUSPECTED`, bảo vệ nguồn vốn và kho hàng. |
-| **Dead Letter Queue (DLQ / DLT)** | Dữ liệu lỗi hoặc sự cố kho làm kẹt partition (Poison Pill). | Cấu hình `DefaultErrorHandler` retry 2 lần (cách 1s). Nếu vẫn thất bại, tin nhắn tự động chuyển vào topic `order-events.DLT`. |
-| **DLT Consumer & Audit Logging** | Message rơi vào DLT thường bị lãng quên hoặc không ai theo dõi. | `OrderDltConsumer` lắng nghe DLT, trích xuất mã đơn và thông báo lỗi, cập nhật trạng thái đơn thành `FAILED_INVENTORY` và lưu vào bảng `dead_letter_events`. |
-| **DLQ Replay Engine** | Đơn hàng lỗi kho sau khi nhập thêm hàng cần được xử lý lại mà không cần khách phải đặt lại. | Hỗ trợ tính năng **Replay** 1-Click: Cập nhật thông tin hợp lệ, cấp `eventId` mới và đẩy lại vào `order-events` để tiếp tục quy trình tự động. |
-| **Live Mission Control Web Dashboard** | Thiếu công cụ trực quan để theo dõi luồng sự kiện và kiểm thử kịch bản. | Giao diện Web HTML5/TailwindCSS tích hợp sẵn tại `http://localhost:8080`, hiển thị Live KPI, bảng Đơn hàng, Outbox, DLQ, Fraud Alerts và các nút thử nghiệm 1-click. |
-| **OpenAPI / Swagger Documentation** | Khó tích hợp và tra cứu thông số API. | Tích hợp Springdoc OpenAPI tại `http://localhost:8080/swagger-ui.html` đầy đủ schemas, tags và request mẫu. |
-| **Automated Test Suite** | Thiếu kiểm thử tự động cho kiến trúc Event-Driven. | Bộ Unit & Integration Tests tự động kiểm tra Transactional Outbox, Idempotent Consumer Guard và DLQ Replay. |
+| **Database-per-Service** | Chia sẻ database gây phụ thuộc chặt chẽ, không thể scale độc lập. | Mỗi Microservice sở hữu Database riêng biệt (`orderdb`, `inventorydb`, `paymentdb`). Không service nào được truy cập DB của service khác. |
+| **Choreography Saga Pattern** | Giao dịch phân tán giữa nhiều service không thể dùng `@Transactional` ACID truyền thống. | Phối hợp qua chuỗi sự kiện Kafka: Order $\rightarrow$ Inventory $\rightarrow$ Payment $\rightarrow$ Notification. |
+| **Saga Compensation (Bù Trừ)** | Khi thanh toán thất bại, số lượng hàng đã giữ trong kho sẽ bị treo vĩnh viễn. | `PaymentService` tự động phát sinh lệnh `InventoryReleaseCommand` sang topic `inventory-release-events` để kho tự động hoàn trả số lượng. |
+| **Transactional Outbox Pattern** | Đặt hàng thành công nhưng broker Kafka mất mạng $\rightarrow$ Mất dữ liệu (*Dual-Write*). | `OrderService` lưu Order và Outbox Event vào **cùng 1 SQL Transaction**. Outbox Publisher quét và đẩy Kafka với xác nhận ACK đồng bộ (`.get(5s)`). |
+| **Idempotent Consumer** | Kafka retry khi mất kết nối mạng có thể gây trừ tiền hoặc trừ kho 2 lần. | Bảng `processed_events` trong mỗi service lưu `eventId`. Nếu nhận lại bản tin cũ, Consumer lập tức bỏ qua. |
+| **Kafka Streams (Windowing)** | Phân tích gian lận thời gian thực với khối lượng dữ liệu dòng chảy lớn. | `FraudDetectionService` chạy độc lập với Kafka Streams Sliding Window 30s gom nhóm theo `customerId`. Phát hiện $\ge 3$ đơn/30s hoặc tổng tiền $\ge 50$ triệu. |
+| **API Gateway & Mission Control UI** | Client phải nhớ quá nhiều port của từng service. | `api-gateway` (Port 8080) là Single Entry Point, định tuyến traffic và phục vụ giao diện Web Dashboard quản trị trực quan. |
 
 ---
 
-## 🚀 3. Hướng Dẫn Khởi Động Nhanh (Quick Start)
-
-### Bước 1: Khởi động Cụm Apache Kafka & Kafka UI bằng Docker
-Mở PowerShell tại thư mục dự án và chạy:
-```powershell
-docker compose up -d
-```
-- **Kafka Broker (KRaft)**: `localhost:9092`
-- **Kafka UI (Quản trị trực quan Topics & Messages)**: [http://localhost:8085](http://localhost:8085)
-
-### Bước 2: Chạy ứng dụng Spring Boot
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-11.0.16.101-hotspot"
-.\mvnw.cmd spring-boot:run
-```
-*(Hoặc mở thư mục bằng IntelliJ IDEA / VS Code và nhấn Run file `EcommerceApplication.java`)*
-
----
-
-## 🖥️ 4. Các Cổng Truy Cập Hệ Thống
-
-| Dịch vụ | URL Truy Cập | Mục đích |
-| :--- | :--- | :--- |
-| 🎮 **Mission Control Web Dashboard** | [http://localhost:8080](http://localhost:8080) | **Giao diện trực quan chính**, bảng theo dõi Live Orders, Outbox, DLQ, Fraud Alerts & nút Test 1-Click |
-| 📖 **Swagger / OpenAPI Documentation** | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) | Tra cứu và thử nghiệm trực tiếp toàn bộ REST API |
-| 📊 **Kafka UI Dashboard** | [http://localhost:8085](http://localhost:8085) | Quản trị Kafka Topics, Partitions, Consumer Groups, Offsets |
-| 🗄️ **H2 SQL Database Console** | [http://localhost:8080/h2-console](http://localhost:8080/h2-console) | Tra cứu bảng SQL: `orders`, `outbox_events`, `processed_events`, `dead_letter_events`<br>*(JDBC URL: `jdbc:h2:mem:ecommercedb`, User: `sa`, Password: để trống)* |
-
----
-
-## 🧪 5. Các Kịch Bản Test Thực Chiến (Có thể thao tác qua Web UI hoặc cURL)
-
-> 💡 **Khuyến nghị**: Bạn có thể mở giao diện [http://localhost:8080](http://localhost:8080) và bấm trực tiếp các nút kịch bản để thấy dữ liệu cập nhật theo thời gian thực! Dưới đây là các lệnh cURL tương đương:
-
-### 🟢 Kịch bản 1: Đặt Đơn Hàng Bình Thường (Transactional Outbox Pattern)
-```powershell
-curl -X POST http://localhost:8080/api/orders `
-  -H "Content-Type: application/json" `
-  -d "{\"customerId\":\"USER_VIP_01\",\"productName\":\"MacBook Pro M3 Max\",\"amount\":65000000.0,\"paymentMethod\":\"CREDIT_CARD\"}"
-```
-**Luồng xử lý diễn ra:**
-1. API ghi Order (`PENDING`) và Outbox Event (`PENDING`) trong **cùng 1 Transaction SQL** rồi phản hồi ngay lập tức (`ACCEPTED`).
-2. `OutboxPublisher` quét DB, gửi message lên Kafka topic `order-events` và nhận xác nhận ACK từ broker, sau đó cập nhật status thành `SENT`.
-3. `PaymentAndInventoryConsumer` nhận message, kiểm tra bảng `processed_events`, trừ tiền, cập nhật đơn hàng thành `CONFIRMED` và phát sinh sự kiện vào topic `payment-confirmed-events`.
-
----
-
-### 🚨 Kịch bản 2: Mô Phỏng Hacker SPAM Đơn Hàng (Kafka Streams Windowing & Fraud Defense)
-Mô phỏng user `hacker_99` cố tình đặt liên tiếp 4 đơn hàng trong 1 giây:
-```powershell
-curl -X POST "http://localhost:8080/api/simulation/fraud-attack?customerId=hacker_99&count=4"
-```
-**Luồng xử lý diễn ra:**
-1. 4 đơn hàng được đẩy vào Kafka topic `order-events`.
-2. **Kafka Streams Engine**: Nhận diện trong cửa sổ Sliding Window 30s khách hàng `hacker_99` có $\ge 3$ đơn hàng.
-3. Kafka Streams ngay lập tức phát sinh sự kiện cảnh báo vào topic `fraud-alerts`.
-4. `FraudAlertsListener` bắt được cảnh báo, kích hoạt cơ chế phòng thủ tự động đổi trạng thái đơn hàng của user này thành `FRAUD_SUSPECTED`!
-5. Kiểm tra danh sách cảnh báo thời gian thực:
-```powershell
-curl http://localhost:8080/api/simulation/fraud-alerts
-```
-
----
-
-### 💥 Kịch bản 3: Mô Phỏng Lỗi Kho / Poison Pill (Dead Letter Queue & Replay)
-Gửi đơn hàng với mã sản phẩm lỗi kho:
-```powershell
-curl -X POST http://localhost:8080/api/simulation/dlq-poison-pill
-```
-**Luồng xử lý diễn ra:**
-1. Consumer phát hiện mã sản phẩm `FAIL_INVENTORY_...`, ném ngoại lệ.
-2. `DefaultErrorHandler` thực hiện Retry lần 1 (sau 1s) $\rightarrow$ Thất bại.
-3. Thực hiện Retry lần 2 (sau 1s) $\rightarrow$ Thất bại.
-4. Message tự động được chuyển sang topic `order-events.DLT`.
-5. `OrderDltConsumer` lắng nghe topic DLT, ghi nhận thông tin vào bảng `dead_letter_events` và đổi trạng thái đơn hàng thành `FAILED_INVENTORY`.
-6. **Thực hiện Replay đơn hỏng** (sau khi nhập thêm hàng vào kho):
-```powershell
-# Xem danh sách bản tin chết trong DLQ
-curl http://localhost:8080/api/simulation/dlq
-
-# Thực hiện Replay bản ghi #1 (cấp eventId mới và phát lại vào topic chính)
-curl -X POST http://localhost:8080/api/simulation/dlq/replay/1
-```
-Đơn hàng sẽ tự động được phục hồi về `PENDING`, Consumer nhận lại và xác nhận thành công sang `CONFIRMED`!
-
----
-
-### 🛡️ Kịch bản 4: Thử Nghiệm Tính Bất Biến (Idempotent Consumer Guard)
-Gửi 2 tin nhắn cùng `eventId` vào Kafka để kiểm tra khả năng chống trừ tiền 2 lần:
-```powershell
-curl -X POST http://localhost:8080/api/simulation/idempotency-test
-```
-**Quan sát:**
-- Message 1 được xử lý bình thường, ghi nhận vào bảng `processed_events`.
-- Message 2 bị chặn lại ngay lập tức tại tầng Idempotent Guard với cảnh báo `Event ĐÃ ĐƯỢC XỬ LÝ TRƯỚC ĐÓ! Bỏ qua ngay lập tức để tránh trừ tiền 2 lần.`
-
----
-
-## 📁 6. Cấu Trúc Mã Nguồn Dự Án
+## 📁 3. Cấu Trúc Dự Án (Maven Multi-Module)
 
 ```
 kafka-ecommerce-eventdriven/
-├── docker-compose.yml             # Cụm Kafka KRaft + Kafka UI + Healthcheck
-├── pom.xml                        # Spring Boot 2.7.18 + JPA + H2 + Kafka Streams + Swagger
-├── README.md                      # Tài liệu hướng dẫn toàn diện
-├── src/
-│   ├── main/
-│   │   ├── resources/
-│   │   │   ├── application.yml    # Tuning Producer Snappy, Consumer, Swagger & DB
-│   │   │   └── static/
-│   │   │       └── index.html     # Giao diện Mission Control Web Dashboard đỉnh cao
-│   │   └── java/com/example/ecommerce/
-│   │       ├── EcommerceApplication.java
-│   │       ├── config/
-│   │       │   └── KafkaTopicAndStreamsConfig.java # Topic builder, Streams config, DLQ ErrorHandler
-│   │       ├── entity/
-│   │       │   ├── OrderEntity.java                # Bảng đơn hàng (hỗ trợ trạng thái mở rộng)
-│   │       │   ├── OutboxEventEntity.java          # Bảng Outbox (hỗ trợ retry count & last error)
-│   │       │   ├── ProcessedEventEntity.java       # Bảng Idempotency (chống duplicate)
-│   │       │   └── DeadLetterEventEntity.java      # Bảng Dead Letter Queue lưu trữ bản tin hỏng
-│   │       ├── repository/
-│   │       │   ├── OrderRepository.java
-│   │       │   ├── OutboxEventRepository.java
-│   │       │   ├── ProcessedEventRepository.java
-│   │       │   └── DeadLetterEventRepository.java
-│   │       ├── dto/
-│   │       │   ├── CreateOrderRequest.java         # DTO kèm Bean Validation
-│   │       │   ├── OrderEventDTO.java              # Payload sự kiện chuẩn
-│   │       │   ├── FraudAlertEvent.java            # Cảnh báo gian lận
-│   │       │   ├── CustomerActivitySummary.java    # Tổng hợp dữ liệu Streams
-│   │       │   └── DashboardMetricsDTO.java        # DTO tổng hợp cho Web UI
-│   │       ├── service/
-│   │       │   ├── OrderService.java               # Transactional Outbox implementation
-│   │       │   ├── OutboxPublisher.java            # Background poller đồng bộ ACK & retry limit
-│   │       │   ├── FraudDetectionStream.java       # Kafka Streams Windowing & Analytics 30s
-│   │       │   ├── FraudAlertsListener.java        # Tiếp nhận Fraud Alert & Auto Lock Order
-│   │       │   ├── PaymentAndInventoryConsumer.java# Idempotent Consumer & DLQ Trigger
-│   │       │   ├── OrderDltConsumer.java           # DLT Consumer & Audit Error
-│   │       │   └── DeadLetterQueueService.java     # Engine Replay bản tin chết
-│   │       └── controller/
-│   │           ├── OrderController.java            # API quản lý đơn hàng
-│   │           └── SimulationAndAnalyticsController.java # API mô phỏng & Dashboard metrics
-│   └── test/
-│       └── java/com/example/ecommerce/service/
-│           ├── OrderServiceTest.java               # Unit Test Transactional Outbox
-│           ├── PaymentAndInventoryConsumerTest.java# Unit Test Idempotent Guard & DLQ Trigger
-│           └── DeadLetterQueueServiceTest.java     # Unit Test DLQ Replay Engine
+├── pom.xml                               # Root POM quản lý BOM, version và modules
+├── docker-compose.yml                    # Cụm Apache Kafka KRaft + Kafka UI
+├── README.md                             # Tài liệu hướng dẫn toàn diện
+├── common-contracts/                     # Module chia sẻ Event DTOs & Constants
+│   ├── pom.xml
+│   └── src/main/java/com/ecommerce/common/
+│       ├── constant/KafkaTopicConstants.java
+│       └── event/                        # OrderCreatedEvent, InventoryReservedEvent, PaymentSuccessEvent, ...
+├── order-service/                        # Service quản lý đơn hàng & Transactional Outbox (Port 8081)
+│   ├── pom.xml
+│   └── src/main/java/com/ecommerce/order/
+├── inventory-service/                    # Service quản lý kho & Saga Compensation (Port 8082)
+│   ├── pom.xml
+│   └── src/main/java/com/ecommerce/inventory/
+├── payment-service/                      # Service thanh toán & Idempotency Guard (Port 8083)
+│   ├── pom.xml
+│   └── src/main/java/com/ecommerce/payment/
+├── fraud-detection-service/              # Kafka Streams Engine độc lập phân tích gian lận (Port 8084)
+│   ├── pom.xml
+│   └── src/main/java/com/ecommerce/fraud/
+├── notification-service/                 # Service gửi thông báo Email/SMS khách hàng (Port 8085)
+│   ├── pom.xml
+│   └── src/main/java/com/ecommerce/notification/
+└── api-gateway/                          # Cổng Gateway & Web Mission Control Dashboard (Port 8080)
+    ├── pom.xml
+    └── src/main/resources/static/index.html
 ```
 
 ---
 
-## 🏆 7. Chạy Kiểm Thử Tự Động (Automated Testing)
+## 🚀 4. Hướng Dẫn Khởi Chạy
 
-Chạy toàn bộ bộ test case tự động:
+### Bước 1: Khởi động Apache Kafka Broker & Kafka UI bằng Docker
+```powershell
+docker compose up -d
+```
+- **Kafka Broker**: `localhost:9092`
+- **Kafka UI**: [http://localhost:8085](http://localhost:8085)
+
+### Bước 2: Build & Chạy Kiểm Thử Tự Động (Maven)
 ```powershell
 .\mvnw.cmd test
 ```
-**Kết quả kiểm thử:**
-- `OrderServiceTest`: Kiểm chứng việc lưu Order và Outbox Event đồng thời trong 1 Transaction SQL.
-- `PaymentAndInventoryConsumerTest`: Kiểm chứng việc xử lý thành công, ngăn chặn trùng lặp qua Idempotency Guard và ném lỗi kích hoạt DLQ.
-- `DeadLetterQueueServiceTest`: Kiểm chứng việc sửa đổi payload, sinh eventId mới và replay lại vào topic chính.
+Toàn bộ các test case kiểm tra Transactional Outbox, Idempotent Consumer, và Saga Compensating Stock Release sẽ được thực thi trên cả cụm modules.
+
+### Bước 3: Khởi Động Các Microservices
+Mở từng cửa sổ PowerShell (hoặc chạy trong IDE) và khởi động các service:
+
+```powershell
+# 1. Order Service (Port 8081)
+.\mvnw.cmd spring-boot:run -pl order-service
+
+# 2. Inventory Service (Port 8082)
+.\mvnw.cmd spring-boot:run -pl inventory-service
+
+# 3. Payment Service (Port 8083)
+.\mvnw.cmd spring-boot:run -pl payment-service
+
+# 4. Fraud Detection Service (Port 8084)
+.\mvnw.cmd spring-boot:run -pl fraud-detection-service
+
+# 5. Notification Service (Port 8085)
+.\mvnw.cmd spring-boot:run -pl notification-service
+
+# 6. API Gateway & Dashboard (Port 8080)
+.\mvnw.cmd spring-boot:run -pl api-gateway
+```
+
+---
+
+## 🖥️ 5. Các Cổng Truy Cập Hệ Thống
+
+| Microservice | Port | URL Truy Cập | Mục Đích |
+| :--- | :---: | :--- | :--- |
+| 🌐 **API Gateway & Web Dashboard** | `8080` | [http://localhost:8080](http://localhost:8080) | **Giao diện Mission Control chính**, điều khiển kịch bản 1-click |
+| 🛍️ **Order Service** | `8081` | [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html) | Quản lý Đơn hàng & Transactional Outbox |
+| 📦 **Inventory Service** | `8082` | [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) | Quản lý Tồn kho & Xả kho bù trừ |
+| 💳 **Payment Service** | `8083` | [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html) | Quản lý Thanh toán & Giao dịch |
+| 🌊 **Fraud Detection Service** | `8084` | [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html) | Kafka Streams Engine phân tích gian lận 30s |
+| 📩 **Notification Service** | `8085` | [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html) | Thông báo Email/SMS khách hàng |
+| 📊 **Kafka UI Cluster** | `8085` | [http://localhost:8085](http://localhost:8085) | Giám sát Topics, Consumer Groups, Partitions, Offsets |
+
+---
+
+## 🧪 6. Các Kịch Bản Thử Nghiệm Saga Thực Chiến (1-Click trên Web UI)
+
+Truy cập **[http://localhost:8080](http://localhost:8080)** để bấm trực tiếp các nút thử nghiệm kịch bản:
+
+### 🟢 Kịch bản 1: Happy Path Saga (Đặt hàng thành công trọn vẹn)
+- **Hành động**: Đặt đơn hàng MacBook Pro (45.000.000 VND).
+- **Luồng sự kiện**:
+  1. `order-service`: Lưu đơn (`PENDING`) $\rightarrow$ Outbox Worker đẩy `OrderCreatedEvent`.
+  2. `inventory-service`: Nhận event $\rightarrow$ Giữ 1 máy trong kho $\rightarrow$ Phát sinh `InventoryReservedEvent`.
+  3. `payment-service`: Nhận event $\rightarrow$ Trừ tiền thành công $\rightarrow$ Phát sinh `PaymentSuccessEvent`.
+  4. `order-service`: Nhận `PaymentSuccessEvent` $\rightarrow$ Cập nhật đơn thành `CONFIRMED`.
+  5. `notification-service`: Nhận event $\rightarrow$ Gửi Email hóa đơn cho khách.
+
+---
+
+### 🔴 Kịch bản 2: Kho Hết Hàng (Inventory Failure)
+- **Hành động**: Đặt đơn hàng sản phẩm `FAIL_INVENTORY_PRODUCT` (Tồn kho = 0).
+- **Luồng sự kiện**:
+  1. `order-service`: Lưu đơn $\rightarrow$ Phát sinh `OrderCreatedEvent`.
+  2. `inventory-service`: Kiểm tra kho thấy số lượng = 0 $\rightarrow$ Bắn `InventoryFailedEvent`.
+  3. `order-service`: Cập nhật đơn thành `FAILED_OUT_OF_STOCK`.
+  4. Không gọi sang `payment-service` (tiết kiệm chi phí giao dịch).
+  5. `notification-service`: Gửi thông báo hết hàng cho khách.
+
+---
+
+### 🟡 Kịch bản 3: Saga Compensating Rollback (Thanh toán lỗi $\rightarrow$ Bù trừ xả kho)
+- **Hành động**: Đặt đơn hàng với tài khoản `FAIL_PAYMENT_USER` (Thẻ bị từ chối).
+- **Luồng sự kiện**:
+  1. `order-service`: Tạo đơn hàng $\rightarrow$ Phát sinh `OrderCreatedEvent`.
+  2. `inventory-service`: Đủ hàng $\rightarrow$ Khóa 1 sản phẩm trong kho $\rightarrow$ Bắn `InventoryReservedEvent`.
+  3. `payment-service`: Cổng thanh toán từ chối thẻ $\rightarrow$ Ghi nhận thanh toán `FAILED`.
+  4. **KÍCH HOẠT LỆNH BÙ TRỪ SAGA**: `payment-service` bắn `InventoryReleaseCommand` sang topic `inventory-release-events`.
+  5. `inventory-service`: Nhận lệnh bù trừ $\rightarrow$ **Tự động cộng lại số lượng vào kho khả dụng!**
+  6. `order-service`: Cập nhật đơn thành `FAILED_PAYMENT`.
+
+---
+
+### 🟣 Kịch bản 4: Tấn Công Spam / Gian Lận (Kafka Streams Real-time Analytics)
+- **Hành động**: User `hacker_99` đặt liên tiếp 4 đơn hàng trong vòng 1 giây.
+- **Luồng sự kiện**:
+  1. Cả 4 đơn được đẩy lên topic `order-created-events`.
+  2. `fraud-detection-service`: Kafka Streams Sliding Window 30s phát hiện $\ge 3$ đơn của cùng 1 user $\rightarrow$ Bắn `FraudAlertEvent` vào topic `fraud-alerts`.
+  3. `order-service`: Lắng nghe cảnh báo $\rightarrow$ Tự động chuyển các đơn của user này sang trạng thái `FRAUD_SUSPECTED` để đóng băng tài khoản.

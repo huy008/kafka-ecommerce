@@ -10,87 +10,41 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.example</groupId>
-    <artifactId>kafka-ecommerce-eventdriven</artifactId>
-    <version>1.0.0</version>
-    <name>kafka-ecommerce-eventdriven</name>
-    <description>Production-grade Event-Driven E-Commerce with Kafka, Outbox Pattern, Idempotency and Kafka Streams</description>
+    <groupId>com.ecommerce</groupId>
+    <artifactId>kafka-ecommerce-microservices</artifactId>
+    <version>2.0.0</version>
+    <packaging>pom</packaging>
+    <name>kafka-ecommerce-microservices</name>
+    <description>Enterprise Event-Driven Microservices Architecture with Apache Kafka, Saga Pattern, Outbox and Streams</description>
+
+    <modules>
+        <module>common-contracts</module>
+        <module>order-service</module>
+        <module>inventory-service</module>
+        <module>payment-service</module>
+        <module>fraud-detection-service</module>
+        <module>notification-service</module>
+        <module>api-gateway</module>
+    </modules>
 
     <properties>
         <java.version>11</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <springdoc.version>1.7.0</springdoc.version>
     </properties>
 
-    <dependencies>
-        <!-- Spring Boot Web & Validation -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-
-        <!-- OpenAPI / Swagger Documentation (Springdoc v1.7.0 cho Spring Boot 2.x) -->
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-ui</artifactId>
-            <version>1.7.0</version>
-        </dependency>
-
-        <!-- Spring Data JPA & H2 In-Memory DB (cho Outbox Pattern & Idempotency Table) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- Spring Kafka -->
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
-
-        <!-- Kafka Streams (Xử lý luồng thời gian thực, Windowing, Fraud Detection) -->
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka-streams</artifactId>
-        </dependency>
-
-        <!-- Jackson JSON & JavaTime module -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-        </dependency>
-
-        <!-- Testing -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.ecommerce</groupId>
+                <artifactId>common-contracts</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>
-

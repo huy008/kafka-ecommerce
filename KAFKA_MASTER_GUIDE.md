@@ -230,18 +230,26 @@ Framework phân tán giúp kết nối Kafka với các hệ thống khác (Data
   - Lab 5: Dead Letter Queue (DLQ / DLT) với Retry Listener.
   - Lab 6: Kafka Transactions & Exactly-Once (`isolation.level = read_committed`).
 
-### 📌 Dự án 2: `kafka-ecommerce-eventdriven` (Kiến Trúc Thực Chiến E-Commerce)
-- **Thư mục:** `C:\Users\quang\.gemini\antigravity\scratch\kafka-ecommerce-eventdriven`
-- **Công nghệ:** Spring Boot 2.7, H2 In-Memory DB, Spring Data JPA, Kafka Streams, Docker Compose.
-- **Kỹ thuật tích hợp:**
-  - **Transactional Outbox Pattern:** Ghi DB và Outbox Event trong 1 transaction SQL. Worker quét đẩy Kafka định kỳ.
-  - **Idempotent Consumer:** Dùng bảng `processed_events` chặn đứng nguy cơ trừ tiền/xuất kho 2 lần.
-  - **Kafka Streams Sliding Window (30s):** Phát hiện tức thời hành vi hacker SPAM $\ge 3$ đơn hàng liên tiếp và kích hoạt cảnh báo vào `fraud-alerts`.
-  - **Production Tuning:** Snappy compression, batch size 16KB, linger.ms 20ms.
+### 📌 Dự án 2: `kafka-ecommerce-eventdriven` (Microservices Event-Driven & Saga Pattern v2.0)
+- **Thư mục:** `c:\Users\quang\Videos\kafka-ecommerce-eventdriven`
+- **Mô hình kiến trúc:** **Maven Multi-Module Microservices** (7 modules độc lập).
+- **Các Dịch vụ thành phần:**
+  - `common-contracts`: Thư viện Data Contracts & Event DTOs bất biến dùng chung.
+  - `order-service` (Port 8081): Quản lý vòng đời đơn hàng, Transactional Outbox Pattern, Saga Coordinator.
+  - `inventory-service` (Port 8082): Quản lý tồn kho thực tế, Idempotent Consumer, Saga Compensating Rollback (xả kho khi lỗi).
+  - `payment-service` (Port 8083): Xử lý thanh toán, Idempotent Guard, kích hoạt lệnh bù trừ khi thẻ bị từ chối.
+  - `fraud-detection-service` (Port 8084): Kafka Streams Engine độc lập (Sliding Window 30s) phát hiện gian lận và khóa đơn tự động.
+  - `notification-service` (Port 8085): Tiếp nhận toàn bộ luồng sự kiện để mô phỏng gửi Email/SMS/Push cho khách.
+  - `api-gateway` (Port 8080): Single Entry Point định tuyến toàn cụm và phục vụ Mission Control Web Dashboard.
+- **Kỹ thuật thực chiến nâng cao:**
+  - **Database-per-Service:** Mỗi service sở hữu database riêng biệt (`orderdb`, `inventorydb`, `paymentdb`), triệt tiêu phụ thuộc dữ liệu.
+  - **Choreography-based Saga Pattern:** Phối hợp giao dịch phân tán không cần 2PC/XA.
+  - **Compensating Transactions (Lệnh Bù Trừ):** Tự động phát sinh `InventoryReleaseCommand` để xả kho khi bước thanh toán thất bại.
+  - **Publish/Subscribe Đa Consumer Group:** Cùng 1 topic `order-created-events` được tiêu thụ song song bởi Kho và Kafka Streams mà không nghẽn nhau.
 
 ---
 
-## 10. TOP 10 CÂU HỎI PHỎNG VẤN KAFKA KINH ĐIỂN
+## 10. TOP 15 CÂU HỎI PHỎNG VẤN KAFKA KINH ĐIỂN (KÈM ĐÁP ÁN SENIOR)
 
 ### Q1: Làm sao đảm bảo thứ tự của Message trong Kafka?
 > **Trả lời:** Kafka chỉ đảm bảo thứ tự message trên **từng Partition riêng lẻ**, không đảm bảo trên toàn bộ Topic. Để các message của một đối tượng luôn đúng thứ tự (ví dụ: các giao dịch của cùng 1 User), ta phải truyền `Key` (ví dụ `userId`). Kafka sẽ hash key đó để đưa tất cả message vào cùng một partition.
@@ -286,6 +294,32 @@ Framework phân tán giúp kết nối Kafka với các hệ thống khác (Data
 > 1. Không cần duy trì cụm ZooKeeper riêng biệt $\rightarrow$ Tiết kiệm tài nguyên và đơn giản hóa vận hành.
 > 2. Khởi động và khôi phục cluster nhanh hơn gấp nhiều lần.
 > 3. Cho phép scale hàng triệu partition trong một cluster mà không bị nghẽn metadata tại ZooKeeper.
+
+### Q11: Phân tán Giao Dịch trong Microservices bằng Saga Pattern thế nào?
+> **Trả lời:** Trong Microservices, mỗi service có Database riêng nên không thể dùng `@Transactional` ACID truyền thống. Saga chia giao dịch lớn thành chuỗi các giao dịch cục bộ (Local Transactions). Khi một bước thất bại (ví dụ: thanh toán bị từ chối), hệ thống sẽ phát sinh **Compensating Transaction (Giao dịch bù trừ)** ngược lại các bước trước (ví dụ: xả kho đã giữ, hoàn điểm thưởng) để đảm bảo tính nhất quán cuối cùng (Eventual Consistency).
+
+### Q12: So sánh Choreography Saga và Orchestration Saga?
+> **Trả lời:**
+> - **Choreography (Hướng sự kiện - Không có nhạc trưởng):** Các service tự lắng nghe event của nhau qua Kafka và tự quyết định hành động tiếp theo. Ưu điểm: Loose-coupling, hiệu năng cao, linh hoạt. Nhược điểm: Khó vẽ luồng tổng thể khi hệ thống có hàng chục bước.
+> - **Orchestration (Có nhạc trưởng điều phối):** Dùng 1 Orchestrator tập trung (như Camunda, Temporal hoặc 1 Coordinator Service) gửi lệnh trực tiếp đến từng service. Ưu điểm: Dễ theo dõi và quản lý state tập trung. Nhược điểm: Tạo thành điểm nghẽn (Single Point of Failure / Bottleneck) nếu không thiết kế cẩn thận.
+
+### Q13: Tại sao không nên chia sẻ chung Database giữa các Microservices?
+> **Trả lời:** Chia sẻ chung Database vi phạm nguyên tắc bao đóng (loose coupling) của Microservices:
+> 1. Khi 1 service đổi schema bảng, nó làm vỡ logic của tất cả các service khác đang đọc bảng đó.
+> 2. Không thể chọn công nghệ lưu trữ phù hợp (ví dụ: Order dùng SQL, Analytics dùng ClickHouse/NoSQL).
+> 3. Xung đột tài nguyên và khó phân quyền bảo mật độc lập.
+
+### Q14: Khi scale out Outbox Publisher trên nhiều instance của Order Service thì giải quyết tranh chấp thế nào?
+> **Trả lời:** Nếu chạy 3 pods của Order Service cùng quét bảng `outbox_events`:
+> - Giải pháp 1: Dùng SQL `SELECT ... FOR UPDATE SKIP LOCKED` (chỉ khóa dòng chưa bị pod khác xử lý).
+> - Giải pháp 2: Dùng **Debezium CDC** đọc Transaction Log của DB thay vì dùng Poller chủ động (chỉ cần 1 connector duy nhất, không lo tranh chấp).
+> - Giải pháp 3: Dùng ShedLock hoặc Distributed Lock (Redis / Zookeeper) để chỉ định duy nhất 1 Pod làm Leader quét Outbox.
+
+### Q15: Làm sao kiểm soát Event Versioning khi một Service cập nhật Event Payload?
+> **Trả lời:**
+> 1. Đặt tên Topic kèm version (ví dụ: `order-created-events.v1`, `order-created-events.v2`).
+> 2. Áp dụng quy tắc tương thích ngược (Backward Compatibility): Không bao giờ xóa hoặc đổi tên trường cũ; trường mới luôn phải là optional (có giá trị mặc định).
+> 3. Sử dụng **Schema Registry + Apache Avro/Protobuf** để tự động kiểm duyệt tính tương thích trước khi Producer được phép gửi bản tin.
 
 ---
 *Tài liệu được biên soạn đồng bộ với 2 dự án thực hành đã tạo trong máy của bạn.*

@@ -1,0 +1,23 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+# Địa chỉ các microservices nội bộ
+services:
+  order-service: http://localhost:8081
+  inventory-service: http://localhost:8082
+  payment-service: http://localhost:8083
+  fraud-detection-service: http://localhost:8084
+  notification-service: http://localhost:8085
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.ecommerce: INFO
+
