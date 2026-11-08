@@ -1,0 +1,65 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: kafka-ecommerce-eventdriven
+
+  # Cấu hình Database H2 in-memory cho Outbox Pattern, Idempotency & Dead Letter Queue
+  datasource:
+    url: jdbc:h2:mem:ecommercedb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+  # Cấu hình Apache Kafka chuẩn Enterprise Production Tuning
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all # Bền vững: ghi vào toàn bộ ISR (In-Sync Replicas)
+      properties:
+        enable.idempotence: true # Producer Idempotency: chống trùng message khi retry mạng
+        compression.type: snappy # Thuật toán nén snappy tối ưu CPU & băng thông mạng
+        batch.size: 16384 # 16KB batch size gom gói tin
+        linger.ms: 20 # Chờ 20ms để gom batch tối đa hóa throughput
+        max.in.flight.requests.per.connection: 5 # Thứ tự message được bảo đảm
+
+    consumer:
+      group-id: ecommerce-order-processors
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        isolation.level: read_committed
+        max.poll.interval.ms: 300000
+
+# Cấu hình Swagger / OpenAPI 3 UI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+# Tinh chỉnh mức log
+logging:
+  level:
+    com.example.ecommerce: INFO
+    org.apache.kafka: WARN
+    org.hibernate: WARN
+    org.apache.kafka.streams: WARN
