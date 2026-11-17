@@ -3,9 +3,9 @@ package com.ecommerce.fraud.service;
 import com.ecommerce.common.constant.KafkaTopicConstants;
 import com.ecommerce.common.event.FraudAlertEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -14,17 +14,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class FraudAlertStore {
-
-    private static final Logger log = LoggerFactory.getLogger(FraudAlertStore.class);
 
     private final List<FraudAlertEvent> alertHistory = new CopyOnWriteArrayList<>();
     private final ObjectMapper objectMapper;
-
-    public FraudAlertStore(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     @KafkaListener(topics = KafkaTopicConstants.TOPIC_FRAUD_ALERTS, groupId = "fraud-detection-dashboard-group")
     public void onFraudAlert(ConsumerRecord<String, String> record) {
@@ -34,10 +30,10 @@ public class FraudAlertStore {
             if (alertHistory.size() > 100) {
                 alertHistory.remove(alertHistory.size() - 1);
             }
-            log.warn("🛑 [FraudAlertStore] Đã lưu cảnh báo: {} | Khách hàng: {} | Lý do: {}",
+            log.warn("🛑 [FraudAlertStore] Stored fraud alert: {} | Customer: {} | Reason: {}",
                     alert.getAlertId(), alert.getCustomerId(), alert.getAlertReason());
         } catch (Exception e) {
-            log.error("Lỗi parse FraudAlertEvent: {}", e.getMessage());
+            log.error("Error parsing FraudAlertEvent: {}", e.getMessage());
         }
     }
 
@@ -49,4 +45,3 @@ public class FraudAlertStore {
         alertHistory.clear();
     }
 }
-

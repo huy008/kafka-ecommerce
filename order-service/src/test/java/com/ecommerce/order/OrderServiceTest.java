@@ -38,7 +38,7 @@ class OrderServiceTest {
     }
 
     @Test
-    @DisplayName("Transactional Outbox: Ghi Order và OutboxEvent cùng 1 Transaction")
+    @DisplayName("Transactional Outbox: Persists Order and OutboxEvent in the same transaction")
     void testCreateOrderTransactionalOutbox() {
         CreateOrderRequest request = new CreateOrderRequest("USER_01", "MacBook Pro", 1, 45000000.0, 45000000.0, "CREDIT_CARD", "HN");
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(inv -> inv.getArgument(0));

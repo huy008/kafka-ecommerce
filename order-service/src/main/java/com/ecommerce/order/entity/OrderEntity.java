@@ -1,10 +1,19 @@
 package com.ecommerce.order.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "orders")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class OrderEntity {
 
     @Id
@@ -20,33 +29,34 @@ public class OrderEntity {
     @Column(nullable = false)
     private String productName;
 
-    private Integer quantity;
+    @Builder.Default
+    private Integer quantity = 1;
 
     private Double unitPrice;
 
     @Column(nullable = false)
     private Double amount;
 
-    private String paymentMethod;
+    @Builder.Default
+    private String paymentMethod = "CREDIT_CARD";
 
-    private String shippingAddress;
+    @Builder.Default
+    private String shippingAddress = "Vietnam";
 
+    // PENDING, INVENTORY_RESERVED, CONFIRMED, FAILED_OUT_OF_STOCK, FAILED_PAYMENT, FRAUD_SUSPECTED
     @Column(nullable = false)
-    private String status; // PENDING, INVENTORY_RESERVED, CONFIRMED, FAILED_OUT_OF_STOCK, FAILED_PAYMENT, FRAUD_SUSPECTED
+    private String status;
 
     private String failureReason;
 
+    @Builder.Default
     private Boolean fraudSuspected = false;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    public OrderEntity() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.quantity = 1;
-        this.fraudSuspected = false;
-    }
+    @Builder.Default
+    private LocalDateTime updatedAt = LocalDateTime.now();
 
     public OrderEntity(String orderNumber, String customerId, String productName, Integer quantity,
                        Double unitPrice, Double amount, String paymentMethod, String shippingAddress, String status) {
@@ -63,55 +73,4 @@ public class OrderEntity {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
-
-    public Long getId() { return id; }
-
-    public String getOrderNumber() { return orderNumber; }
-    public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
-
-    public String getCustomerId() { return customerId; }
-    public void setCustomerId(String customerId) { this.customerId = customerId; }
-
-    public String getProductName() { return productName; }
-    public void setProductName(String productName) { this.productName = productName; }
-
-    public Integer getQuantity() { return quantity; }
-    public void setQuantity(Integer quantity) { this.quantity = quantity; }
-
-    public Double getUnitPrice() { return unitPrice; }
-    public void setUnitPrice(Double unitPrice) { this.unitPrice = unitPrice; }
-
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
-
-    public String getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
-
-    public String getShippingAddress() { return shippingAddress; }
-    public void setShippingAddress(String shippingAddress) { this.shippingAddress = shippingAddress; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) {
-        this.status = status;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getFailureReason() { return failureReason; }
-    public void setFailureReason(String failureReason) {
-        this.failureReason = failureReason;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public Boolean getFraudSuspected() { return fraudSuspected; }
-    public void setFraudSuspected(Boolean fraudSuspected) {
-        this.fraudSuspected = fraudSuspected;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
-

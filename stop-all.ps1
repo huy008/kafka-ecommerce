@@ -1,12 +1,12 @@
 # ==============================================================================
-# Script tự động dừng toàn bộ cụm Microservices (Ports 8080 - 8085)
+# Script tự động dừng toàn bộ cụm Microservices (Ports 8080 - 8086)
 # ==============================================================================
 
 Write-Host "==============================================================================" -ForegroundColor Yellow
-Write-Host "🛑 ĐANG DỪNG CỤM MICROSERVICES (Ports 8080, 8081, 8082, 8083, 8084, 8085)..." -ForegroundColor Yellow
+Write-Host "🛑 ĐANG DỪNG CỤM MICROSERVICES (Ports 8080, 8081, 8082, 8083, 8084, 8085, 8086)..." -ForegroundColor Yellow
 Write-Host "==============================================================================" -ForegroundColor Yellow
 
-$ports = @(8080, 8081, 8082, 8083, 8084, 8085)
+$ports = @(8080, 8081, 8082, 8083, 8084, 8085, 8086)
 $killedCount = 0
 
 foreach ($port in $ports) {

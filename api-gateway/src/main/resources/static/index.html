@@ -100,6 +100,9 @@
                 <span class="px-2.5 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5" id="statusNotifSvc">
                     <span class="w-2 h-2 rounded-full bg-slate-500"></span> Notification Service (:8085)
                 </span>
+                <span class="px-2.5 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5" id="statusVoucherSvc">
+                    <span class="w-2 h-2 rounded-full bg-slate-500"></span> Voucher Service (:8086)
+                </span>
             </div>
         </section>
 
@@ -376,6 +379,7 @@
                 updateServiceBadge('statusPaySvc', data.paymentServiceOnline, 'Payment (:8083)');
                 updateServiceBadge('statusFraudSvc', data.fraudServiceOnline, 'Fraud Streams (:8084)');
                 updateServiceBadge('statusNotifSvc', data.notificationServiceOnline, 'Notification (:8085)');
+                updateServiceBadge('statusVoucherSvc', data.voucherServiceOnline, 'Voucher (:8086)');
 
                 // Metrics
                 const orderMetrics = data.orderMetrics || {};

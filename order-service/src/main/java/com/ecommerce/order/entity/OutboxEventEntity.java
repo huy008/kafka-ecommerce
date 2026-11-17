@@ -1,10 +1,19 @@
 package com.ecommerce.order.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "outbox_events")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class OutboxEventEntity {
 
     @Id
@@ -27,24 +36,24 @@ public class OutboxEventEntity {
     @Column(nullable = false)
     private String payload;
 
+    // Statuses: PENDING, SENT, FAILED_MAX_RETRIES
     @Column(nullable = false)
-    private String status; // PENDING, SENT, FAILED_MAX_RETRIES
+    @Builder.Default
+    private String status = "PENDING";
 
+    @Builder.Default
     private Integer retryCount = 0;
 
     @Lob
     private String lastError;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime sentAt;
-    private LocalDateTime updatedAt;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    public OutboxEventEntity() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.status = "PENDING";
-        this.retryCount = 0;
-    }
+    private LocalDateTime sentAt;
+
+    @Builder.Default
+    private LocalDateTime updatedAt = LocalDateTime.now();
 
     public OutboxEventEntity(String eventId, String aggregateType, String aggregateId, String eventType, String payload) {
         this.eventId = eventId;
@@ -58,53 +67,8 @@ public class OutboxEventEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
-
-    public String getEventId() { return eventId; }
-    public void setEventId(String eventId) { this.eventId = eventId; }
-
-    public String getAggregateType() { return aggregateType; }
-    public void setAggregateType(String aggregateType) { this.aggregateType = aggregateType; }
-
-    public String getAggregateId() { return aggregateId; }
-    public void setAggregateId(String aggregateId) { this.aggregateId = aggregateId; }
-
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
-
-    public String getPayload() { return payload; }
-    public void setPayload(String payload) { this.payload = payload; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) {
-        this.status = status;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public Integer getRetryCount() { return retryCount; }
-    public void setRetryCount(Integer retryCount) { this.retryCount = retryCount; }
-
     public void incrementRetryCount() {
         this.retryCount = (this.retryCount == null ? 0 : this.retryCount) + 1;
         this.updatedAt = LocalDateTime.now();
     }
-
-    public String getLastError() { return lastError; }
-    public void setLastError(String lastError) {
-        this.lastError = lastError;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getSentAt() { return sentAt; }
-    public void setSentAt(LocalDateTime sentAt) {
-        this.sentAt = sentAt;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
-

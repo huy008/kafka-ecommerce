@@ -2,8 +2,8 @@ package com.ecommerce.gateway.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,12 +11,12 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/gateway")
-@Tag(name = "API Gateway Controller", description = "Định tuyến và tổng hợp dữ liệu từ cụm Microservices")
+@RequiredArgsConstructor
+@Tag(name = "API Gateway Controller", description = "Reverse routing and metrics aggregation for microservices cluster")
 public class GatewayRoutingController {
-
-    private static final Logger log = LoggerFactory.getLogger(GatewayRoutingController.class);
 
     private final RestTemplate restTemplate;
 
@@ -35,19 +35,18 @@ public class GatewayRoutingController {
     @Value("${services.notification-service}")
     private String notificationServiceUrl;
 
-    public GatewayRoutingController(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
+    @Value("${services.voucher-service}")
+    private String voucherServiceUrl;
 
     /**
-     * TỔNG HỢP TOÀN BỘ METRICS TỪ CỤM MICROSERVICES CHO MISSION CONTROL DASHBOARD
+     * Aggregates real-time metrics and state from all microservices for Mission Control Dashboard.
      */
     @GetMapping("/dashboard-data")
-    @Operation(summary = "Lấy dữ liệu thời gian thực từ tất cả các microservices")
+    @Operation(summary = "Fetch real-time metrics and status from all microservices")
     public ResponseEntity<Map<String, Object>> getDashboardData() {
         Map<String, Object> aggregated = new HashMap<>();
 
-        // 1. Lấy dữ liệu từ Order Service
+        // 1. Fetch data from Order Service
         try {
             Map orderMetrics = restTemplate.getForObject(orderServiceUrl + "/api/orders/metrics", Map.class);
             List ordersList = restTemplate.getForObject(orderServiceUrl + "/api/orders", List.class);
@@ -59,7 +58,7 @@ public class GatewayRoutingController {
             aggregated.put("orders", Collections.emptyList());
         }
 
-        // 2. Lấy dữ liệu từ Inventory Service
+        // 2. Fetch data from Inventory Service
         try {
             List stocks = restTemplate.getForObject(inventoryServiceUrl + "/api/inventory/stocks", List.class);
             Map invMetrics = restTemplate.getForObject(inventoryServiceUrl + "/api/inventory/metrics", Map.class);
@@ -71,7 +70,7 @@ public class GatewayRoutingController {
             aggregated.put("stocks", Collections.emptyList());
         }
 
-        // 3. Lấy dữ liệu từ Payment Service
+        // 3. Fetch data from Payment Service
         try {
             List payments = restTemplate.getForObject(paymentServiceUrl + "/api/payments", List.class);
             Map payMetrics = restTemplate.getForObject(paymentServiceUrl + "/api/payments/metrics", Map.class);
@@ -83,7 +82,7 @@ public class GatewayRoutingController {
             aggregated.put("payments", Collections.emptyList());
         }
 
-        // 4. Lấy dữ liệu từ Fraud Detection Service
+        // 4. Fetch data from Fraud Detection Service
         try {
             List alerts = restTemplate.getForObject(fraudServiceUrl + "/api/fraud/alerts", List.class);
             aggregated.put("fraudAlerts", alerts != null ? alerts : Collections.emptyList());
@@ -93,7 +92,7 @@ public class GatewayRoutingController {
             aggregated.put("fraudAlerts", Collections.emptyList());
         }
 
-        // 5. Lấy dữ liệu từ Notification Service
+        // 5. Fetch data from Notification Service
         try {
             List notifs = restTemplate.getForObject(notificationServiceUrl + "/api/notifications", List.class);
             aggregated.put("notifications", notifs != null ? notifs : Collections.emptyList());
@@ -103,7 +102,18 @@ public class GatewayRoutingController {
             aggregated.put("notifications", Collections.emptyList());
         }
 
+        // 6. Fetch data from Voucher Service
+        try {
+            List vouchers = restTemplate.getForObject(voucherServiceUrl + "/api/vouchers", List.class);
+            Map voucherMetrics = restTemplate.getForObject(voucherServiceUrl + "/api/vouchers/metrics", Map.class);
+            aggregated.put("vouchers", vouchers != null ? vouchers : Collections.emptyList());
+            aggregated.put("voucherMetrics", voucherMetrics);
+            aggregated.put("voucherServiceOnline", true);
+        } catch (Exception e) {
+            aggregated.put("voucherServiceOnline", false);
+            aggregated.put("vouchers", Collections.emptyList());
+        }
+
         return ResponseEntity.ok(aggregated);
     }
 }
-

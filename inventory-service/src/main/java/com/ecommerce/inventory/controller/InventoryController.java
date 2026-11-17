@@ -6,6 +6,7 @@ import com.ecommerce.inventory.repository.ProcessedEventRepository;
 import com.ecommerce.inventory.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,29 +16,22 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/inventory")
-@Tag(name = "Inventory Management API", description = "Quản lý tồn kho và giao dịch bù trừ Saga")
+@RequiredArgsConstructor
+@Tag(name = "Inventory Management API", description = "Inventory management and Saga compensating transactions")
 public class InventoryController {
 
     private final InventoryService inventoryService;
     private final InventoryStockRepository stockRepository;
     private final ProcessedEventRepository processedEventRepository;
 
-    public InventoryController(InventoryService inventoryService,
-                               InventoryStockRepository stockRepository,
-                               ProcessedEventRepository processedEventRepository) {
-        this.inventoryService = inventoryService;
-        this.stockRepository = stockRepository;
-        this.processedEventRepository = processedEventRepository;
-    }
-
     @GetMapping("/stocks")
-    @Operation(summary = "Xem danh sách tồn kho thời gian thực")
+    @Operation(summary = "Get real-time inventory stock list")
     public ResponseEntity<List<InventoryStockEntity>> getStocks() {
         return ResponseEntity.ok(inventoryService.getAllStocks());
     }
 
     @PostMapping("/restock")
-    @Operation(summary = "Nhập thêm hàng vào kho")
+    @Operation(summary = "Restock products into inventory")
     public ResponseEntity<Map<String, Object>> restock(@RequestParam String productName, @RequestParam int quantity) {
         InventoryStockEntity stock = stockRepository.findByProductName(productName)
                 .orElse(new InventoryStockEntity(productName, 0));
@@ -53,7 +47,7 @@ public class InventoryController {
     }
 
     @GetMapping("/metrics")
-    @Operation(summary = "Thống kê Inventory Service")
+    @Operation(summary = "Get Inventory Service metrics")
     public ResponseEntity<Map<String, Object>> getMetrics() {
         Map<String, Object> metrics = new HashMap<>();
         metrics.put("totalProducts", stockRepository.count());
@@ -61,4 +55,3 @@ public class InventoryController {
         return ResponseEntity.ok(metrics);
     }
 }
-

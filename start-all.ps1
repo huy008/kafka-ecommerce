@@ -25,10 +25,11 @@ $services = @(
     @{ Name = "payment-service"; Port = 8083; Title = "3. PAYMENT SERVICE (:8083)" },
     @{ Name = "fraud-detection-service"; Port = 8084; Title = "4. FRAUD STREAMS (:8084)" },
     @{ Name = "notification-service"; Port = 8085; Title = "5. NOTIFICATION SERVICE (:8085)" },
-    @{ Name = "api-gateway"; Port = 8080; Title = "6. API GATEWAY & DASHBOARD (:8080)" }
+    @{ Name = "voucher-service"; Port = 8086; Title = "6. VOUCHER SERVICE (:8086)" },
+    @{ Name = "api-gateway"; Port = 8080; Title = "7. API GATEWAY & DASHBOARD (:8080)" }
 )
 
-Write-Host "`n[2/3] Đang khởi động 6 Microservices..." -ForegroundColor Yellow
+Write-Host "`n[2/3] Đang khởi động 7 Microservices..." -ForegroundColor Yellow
 
 $scriptRoot = $PSScriptRoot
 

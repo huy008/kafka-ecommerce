@@ -1,9 +1,18 @@
 package com.ecommerce.inventory.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import javax.persistence.*;
 
 @Entity
 @Table(name = "inventory_stock")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class InventoryStockEntity {
 
     @Id
@@ -14,10 +23,9 @@ public class InventoryStockEntity {
     private String productName;
 
     private Integer totalStock;
-    private Integer reservedStock;
+    @Builder.Default
+    private Integer reservedStock = 0;
     private Integer availableStock;
-
-    public InventoryStockEntity() {}
 
     public InventoryStockEntity(String productName, Integer totalStock) {
         this.productName = productName;
@@ -25,20 +33,6 @@ public class InventoryStockEntity {
         this.reservedStock = 0;
         this.availableStock = totalStock;
     }
-
-    public Long getId() { return id; }
-
-    public String getProductName() { return productName; }
-    public void setProductName(String productName) { this.productName = productName; }
-
-    public Integer getTotalStock() { return totalStock; }
-    public void setTotalStock(Integer totalStock) { this.totalStock = totalStock; }
-
-    public Integer getReservedStock() { return reservedStock; }
-    public void setReservedStock(Integer reservedStock) { this.reservedStock = reservedStock; }
-
-    public Integer getAvailableStock() { return availableStock; }
-    public void setAvailableStock(Integer availableStock) { this.availableStock = availableStock; }
 
     public boolean reserve(int quantity) {
         if (availableStock != null && availableStock >= quantity) {
@@ -56,4 +50,3 @@ public class InventoryStockEntity {
         }
     }
 }
-

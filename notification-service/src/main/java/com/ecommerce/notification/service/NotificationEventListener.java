@@ -3,27 +3,22 @@ package com.ecommerce.notification.service;
 import com.ecommerce.common.constant.KafkaTopicConstants;
 import com.ecommerce.common.event.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class NotificationEventListener {
-
-    private static final Logger log = LoggerFactory.getLogger(NotificationEventListener.class);
 
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
 
-    public NotificationEventListener(NotificationService notificationService, ObjectMapper objectMapper) {
-        this.notificationService = notificationService;
-        this.objectMapper = objectMapper;
-    }
-
     /**
-     * Khi thanh toán thành công -> Gửi thông báo xác nhận đơn hàng & hóa đơn điện tử
+     * When payment is successful -> Send order confirmation & e-invoice notification
      */
     @KafkaListener(topics = KafkaTopicConstants.TOPIC_PAYMENT_SUCCESS, groupId = "notification-service-group")
     public void onPaymentSuccess(ConsumerRecord<String, String> record) {
@@ -32,16 +27,16 @@ public class NotificationEventListener {
             notificationService.sendNotification(
                     "ORDER_CONFIRMED",
                     event.getCustomerId(),
-                    "Đơn hàng " + event.getOrderNumber() + " đã được xác nhận!",
-                    "Thanh toán " + String.format("%,.0f", event.getAmount()) + " VND thành công qua " + event.getPaymentMethod() + ". Đơn hàng đang được đóng gói."
+                    "Order " + event.getOrderNumber() + " has been confirmed!",
+                    "Payment of " + String.format("%,.0f", event.getAmount()) + " VND via " + event.getPaymentMethod() + " succeeded. Your order is being packed."
             );
         } catch (Exception e) {
-            log.error("Lỗi xử lý PaymentSuccessEvent: {}", e.getMessage());
+            log.error("Error processing PaymentSuccessEvent: {}", e.getMessage());
         }
     }
 
     /**
-     * Khi hết hàng trong kho -> Gửi thông báo xin lỗi khách hàng
+     * When inventory runs out of stock -> Send apology & cancellation notification
      */
     @KafkaListener(topics = KafkaTopicConstants.TOPIC_INVENTORY_FAILED, groupId = "notification-service-group")
     public void onInventoryFailed(ConsumerRecord<String, String> record) {
@@ -50,16 +45,16 @@ public class NotificationEventListener {
             notificationService.sendNotification(
                     "OUT_OF_STOCK",
                     event.getCustomerId(),
-                    "Đơn hàng " + event.getOrderNumber() + " không thể hoàn tất do hết hàng!",
-                    "Rất tiếc sản phẩm '" + event.getProductName() + "' hiện đã hết hàng trong kho. Xin quý khách thông cảm."
+                    "Order " + event.getOrderNumber() + " could not be completed due to out of stock!",
+                    "We are sorry, product '" + event.getProductName() + "' is currently out of stock. We apologize for the inconvenience."
             );
         } catch (Exception e) {
-            log.error("Lỗi xử lý InventoryFailedEvent: {}", e.getMessage());
+            log.error("Error processing InventoryFailedEvent: {}", e.getMessage());
         }
     }
 
     /**
-     * Khi phát hiện gian lận -> Gửi cảnh báo bảo mật
+     * When fraud is detected -> Send security alert notification
      */
     @KafkaListener(topics = KafkaTopicConstants.TOPIC_FRAUD_ALERTS, groupId = "notification-service-group")
     public void onFraudAlert(ConsumerRecord<String, String> record) {
@@ -68,12 +63,11 @@ public class NotificationEventListener {
             notificationService.sendNotification(
                     "SECURITY_ALERT",
                     event.getCustomerId(),
-                    "Cảnh báo bảo mật tài khoản: Phát hiện hành vi bất thường!",
+                    "Security Warning: Suspicious activity detected on your account!",
                     event.getAlertReason()
             );
         } catch (Exception e) {
-            log.error("Lỗi xử lý FraudAlertEvent: {}", e.getMessage());
+            log.error("Error processing FraudAlertEvent: {}", e.getMessage());
         }
     }
 }
-

@@ -8,8 +8,8 @@ import com.ecommerce.order.repository.OrderRepository;
 import com.ecommerce.order.repository.OutboxEventRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,26 +17,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrderService {
-
-    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
-    public OrderService(OrderRepository orderRepository,
-                        OutboxEventRepository outboxEventRepository,
-                        ObjectMapper objectMapper) {
-        this.orderRepository = orderRepository;
-        this.outboxEventRepository = outboxEventRepository;
-        this.objectMapper = objectMapper;
-    }
-
     /**
      * TRANSACTIONAL OUTBOX PATTERN:
-     * Lưu Đơn hàng và OutboxEvent vào CÙNG 1 TRANSACTION SQL.
+     * Saves both Order and OutboxEvent in the EXACT SAME SQL TRANSACTION.
      */
     @Transactional
     public OrderEntity createOrder(CreateOrderRequest request) {
@@ -47,12 +39,12 @@ public class OrderService {
         Double totalAmount = request.getAmount();
         Double unitPrice = request.getUnitPrice() != null ? request.getUnitPrice() : (totalAmount != null ? totalAmount / quantity : 0.0);
         String paymentMethod = request.getPaymentMethod() != null ? request.getPaymentMethod() : "CREDIT_CARD";
-        String shippingAddress = request.getShippingAddress() != null ? request.getShippingAddress() : "Hà Nội, Việt Nam";
+        String shippingAddress = request.getShippingAddress() != null ? request.getShippingAddress() : "Hanoi, Vietnam";
 
-        log.info("🛍️ [OrderService] Tạo đơn hàng: {} cho khách: {} | SP: {} | SL: {} | Tổng: {} VND",
+        log.info("🛍️ [OrderService] Creating order: {} for customer: {} | Product: {} | Qty: {} | Total: {} VND",
                 orderNumber, request.getCustomerId(), request.getProductName(), quantity, totalAmount);
 
-        // 1. Lưu Order vào bảng orders với trạng thái PENDING
+        // 1. Save Order into orders table with PENDING status
         OrderEntity order = new OrderEntity(
                 orderNumber,
                 request.getCustomerId(),
@@ -66,7 +58,7 @@ public class OrderService {
         );
         OrderEntity savedOrder = orderRepository.save(order);
 
-        // 2. Tạo Event DTO
+        // 2. Build Event DTO
         OrderCreatedEvent eventPayload = new OrderCreatedEvent(
                 eventId,
                 orderNumber,
@@ -82,7 +74,7 @@ public class OrderService {
         try {
             String jsonPayload = objectMapper.writeValueAsString(eventPayload);
 
-            // 3. Lưu vào outbox_events trong CÙNG TRANSACTION SQL
+            // 3. Save into outbox_events within the SAME SQL TRANSACTION
             OutboxEventEntity outboxEvent = new OutboxEventEntity(
                     eventId,
                     "ORDER",
@@ -92,9 +84,9 @@ public class OrderService {
             );
             outboxEventRepository.save(outboxEvent);
 
-            log.info("💾 [Transactional Outbox] Đã ghi nhận Order & Outbox Event ({}) vào Database thành công!", eventId);
+            log.info("💾 [Transactional Outbox] Successfully persisted Order & Outbox Event ({}) to Database!", eventId);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Lỗi serialize event payload", e);
+            throw new RuntimeException("Error serializing event payload", e);
         }
 
         return savedOrder;
@@ -120,7 +112,7 @@ public class OrderService {
                 order.setFailureReason(failureReason);
             }
             orderRepository.save(order);
-            log.info("🔄 [OrderService] Cập nhật đơn {} -> Trạng thái: {}, Lý do: {}", orderNumber, status, failureReason);
+            log.info("🔄 [OrderService] Updated order {} -> Status: {}, Reason: {}", orderNumber, status, failureReason);
         });
     }
 
@@ -131,11 +123,10 @@ public class OrderService {
             if ("PENDING".equals(order.getStatus()) || "INVENTORY_RESERVED".equals(order.getStatus()) || "CONFIRMED".equals(order.getStatus())) {
                 order.setFraudSuspected(true);
                 order.setStatus("FRAUD_SUSPECTED");
-                order.setFailureReason("Kafka Streams phát hiện dấu hiệu gian lận tần suất cao!");
+                order.setFailureReason("Kafka Streams detected high-frequency fraudulent behavior!");
                 orderRepository.save(order);
-                log.warn("🚨 [Fraud Guard] Đã khóa cảnh báo đơn hàng {} của khách hàng {}", order.getOrderNumber(), customerId);
+                log.warn("🚨 [Fraud Guard] Flagged and locked order {} for customer {}", order.getOrderNumber(), customerId);
             }
         }
     }
 }
-

@@ -1,22 +1,29 @@
 package com.ecommerce.notification.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class NotificationLog implements Serializable {
 
-    private String id;
-    private String type; // ORDER_CONFIRMED, ORDER_FAILED, FRAUD_WARNING
+    @Builder.Default
+    private String id = "NOTIF-" + UUID.randomUUID().toString().substring(0, 8);
+    // Types: ORDER_CONFIRMED, ORDER_FAILED, FRAUD_WARNING, OUT_OF_STOCK, SECURITY_ALERT
+    private String type;
     private String recipient;
     private String title;
     private String content;
-    private String timestamp;
-
-    public NotificationLog() {
-        this.id = "NOTIF-" + UUID.randomUUID().toString().substring(0, 8);
-        this.timestamp = LocalDateTime.now().toString();
-    }
+    @Builder.Default
+    private String timestamp = LocalDateTime.now().toString();
 
     public NotificationLog(String type, String recipient, String title, String content) {
         this.id = "NOTIF-" + UUID.randomUUID().toString().substring(0, 8);
@@ -26,23 +33,4 @@ public class NotificationLog implements Serializable {
         this.content = content;
         this.timestamp = LocalDateTime.now().toString();
     }
-
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-
-    public String getRecipient() { return recipient; }
-    public void setRecipient(String recipient) { this.recipient = recipient; }
-
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
 }
-

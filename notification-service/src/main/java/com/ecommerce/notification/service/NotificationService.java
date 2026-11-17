@@ -1,8 +1,7 @@
 package com.ecommerce.notification.service;
 
 import com.ecommerce.notification.model.NotificationLog;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -10,10 +9,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+@Slf4j
 @Service
 public class NotificationService {
-
-    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     private final List<NotificationLog> logs = new CopyOnWriteArrayList<>();
 
@@ -24,11 +22,10 @@ public class NotificationService {
             logs.remove(logs.size() - 1);
         }
 
-        log.info("📩 [NotificationService] [{}] Gửi tới '{}': {} - {}", type, recipient, title, content);
+        log.info("📩 [NotificationService] [{}] Sent to '{}': {} - {}", type, recipient, title, content);
     }
 
     public List<NotificationLog> getRecentNotifications() {
         return Collections.unmodifiableList(new ArrayList<>(logs));
     }
 }
-

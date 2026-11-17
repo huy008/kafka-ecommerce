@@ -43,7 +43,7 @@ class InventoryServiceTest {
     }
 
     @Test
-    @DisplayName("Saga Choreography: Giữ kho thành công khi sản phẩm đủ hàng")
+    @DisplayName("Saga Choreography: Reserves stock successfully when inventory is sufficient")
     void testReserveStockSuccess() {
         OrderCreatedEvent event = new OrderCreatedEvent("EVT-1", "ORD-1", "CUST-1", "MacBook Pro", 2, 45000000.0, 90000000.0, "CREDIT_CARD", "HN");
         InventoryStockEntity stock = new InventoryStockEntity("MacBook Pro", 10);
@@ -59,7 +59,7 @@ class InventoryServiceTest {
     }
 
     @Test
-    @DisplayName("Saga Compensation: Xả kho hoàn trả tồn kho khi thanh toán thất bại")
+    @DisplayName("Saga Compensation: Releases reserved stock back to available stock when payment fails")
     void testReleaseStockCompensation() {
         InventoryReleaseCommand cmd = new InventoryReleaseCommand("EVT-COMP-1", "ORD-1", "MacBook Pro", 2, "Payment failed");
         InventoryStockEntity stock = new InventoryStockEntity("MacBook Pro", 10);

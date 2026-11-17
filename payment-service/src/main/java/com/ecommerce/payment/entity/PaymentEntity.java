@@ -1,10 +1,19 @@
 package com.ecommerce.payment.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "payments")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class PaymentEntity {
 
     @Id
@@ -25,15 +34,14 @@ public class PaymentEntity {
 
     private String paymentMethod;
 
+    // Status: SUCCESS, FAILED
     @Column(nullable = false)
-    private String status; // SUCCESS, FAILED
+    private String status;
 
     private String failureReason;
-    private LocalDateTime createdAt;
 
-    public PaymentEntity() {
-        this.createdAt = LocalDateTime.now();
-    }
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     public PaymentEntity(String paymentId, String orderNumber, String customerId, Double amount,
                          String paymentMethod, String status, String failureReason) {
@@ -46,30 +54,4 @@ public class PaymentEntity {
         this.failureReason = failureReason;
         this.createdAt = LocalDateTime.now();
     }
-
-    public Long getId() { return id; }
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
-
-    public String getOrderNumber() { return orderNumber; }
-    public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
-
-    public String getCustomerId() { return customerId; }
-    public void setCustomerId(String customerId) { this.customerId = customerId; }
-
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
-
-    public String getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public String getFailureReason() { return failureReason; }
-    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
-

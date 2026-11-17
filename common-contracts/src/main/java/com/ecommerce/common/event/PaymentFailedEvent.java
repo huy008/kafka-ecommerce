@@ -1,8 +1,17 @@
 package com.ecommerce.common.event;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class PaymentFailedEvent implements Serializable {
 
     private String eventId;
@@ -12,11 +21,8 @@ public class PaymentFailedEvent implements Serializable {
     private Integer quantity;
     private Double amount;
     private String reason;
-    private String timestamp;
-
-    public PaymentFailedEvent() {
-        this.timestamp = LocalDateTime.now().toString();
-    }
+    @Builder.Default
+    private String timestamp = LocalDateTime.now().toString();
 
     public PaymentFailedEvent(String eventId, String orderNumber, String customerId, String productName,
                               Integer quantity, Double amount, String reason) {
@@ -29,29 +35,4 @@ public class PaymentFailedEvent implements Serializable {
         this.reason = reason;
         this.timestamp = LocalDateTime.now().toString();
     }
-
-    public String getEventId() { return eventId; }
-    public void setEventId(String eventId) { this.eventId = eventId; }
-
-    public String getOrderNumber() { return orderNumber; }
-    public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
-
-    public String getCustomerId() { return customerId; }
-    public void setCustomerId(String customerId) { this.customerId = customerId; }
-
-    public String getProductName() { return productName; }
-    public void setProductName(String productName) { this.productName = productName; }
-
-    public Integer getQuantity() { return quantity; }
-    public void setQuantity(Integer quantity) { this.quantity = quantity; }
-
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
-
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
-
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
 }
-

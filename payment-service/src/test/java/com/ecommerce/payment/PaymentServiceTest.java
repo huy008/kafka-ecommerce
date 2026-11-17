@@ -43,7 +43,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("Saga Choreography: Thanh toán thành công phát sinh PaymentSuccessEvent")
+    @DisplayName("Saga Choreography: Successful payment publishes PaymentSuccessEvent")
     void testProcessPaymentSuccess() {
         InventoryReservedEvent event = new InventoryReservedEvent("EVT-RES-1", "ORD-1", "USER_VIP", "MacBook Pro", 1, 45000000.0, "CREDIT_CARD");
         when(processedEventRepository.existsById("EVT-RES-1")).thenReturn(false);
@@ -61,9 +61,9 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("Saga Compensation: Khi thanh toán thất bại, kích hoạt InventoryReleaseCommand để xả kho")
+    @DisplayName("Saga Compensation: When payment fails, triggers InventoryReleaseCommand to release stock")
     void testProcessPaymentFailureTriggersCompensation() {
-        // User FAIL_PAYMENT_USER sẽ kích hoạt lỗi thẻ
+        // User with FAIL_PAYMENT in customerId triggers card failure scenario
         InventoryReservedEvent event = new InventoryReservedEvent("EVT-RES-2", "ORD-2", "FAIL_PAYMENT_USER", "iPhone 16", 1, 34000000.0, "CREDIT_CARD");
         when(processedEventRepository.existsById("EVT-RES-2")).thenReturn(false);
 
@@ -75,11 +75,10 @@ class PaymentServiceTest {
         PaymentEntity saved = captor.getValue();
         assertEquals("FAILED", saved.getStatus());
 
-        // Bắn PaymentFailedEvent
+        // Publishes PaymentFailedEvent
         verify(kafkaTemplate, times(1)).send(eq(KafkaTopicConstants.TOPIC_PAYMENT_FAILED), eq("FAIL_PAYMENT_USER"), any());
 
-        // KÍCH HOẠT LỆNH BÙ TRỪ XẢ KHO SANG TOPIC inventory-release-events!
+        // Triggers compensating stock release command to topic inventory-release-events
         verify(kafkaTemplate, times(1)).send(eq(KafkaTopicConstants.TOPIC_INVENTORY_RELEASE), eq("FAIL_PAYMENT_USER"), any());
     }
 }
-

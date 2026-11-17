@@ -12,6 +12,7 @@ services:
   payment-service: http://localhost:8083
   fraud-detection-service: http://localhost:8084
   notification-service: http://localhost:8085
+  voucher-service: http://localhost:8086
 
 springdoc:
   swagger-ui:

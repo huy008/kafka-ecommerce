@@ -16,6 +16,7 @@ flowchart TD
         Gateway -->|/api/payments| PaySvc["3. Payment Service (8083)\nDB: paymentdb\n- Idempotent Payment Gateway\n- Kích hoạt lệnh bù trừ Saga"]
         Gateway -->|/api/fraud| FraudSvc["4. Fraud Detection Service (8084)\n- Kafka Streams Engine\n- Sliding Window 30s Realtime"]
         Gateway -->|/api/notifications| NotifSvc["5. Notification Service (8085)\n- Mô phỏng Email / SMS / Push Notif"]
+        Gateway -->|/api/vouchers| VoucherSvc["6. Voucher Service (8086)\nDB: voucherdb\n- Quản lý mã giảm giá\n- Saga Compensation hoàn voucher"]
     end
 
     subgraph KafkaCluster ["Apache Kafka Cluster (KRaft Broker 9092)"]
@@ -94,6 +95,9 @@ kafka-ecommerce-eventdriven/
 ├── notification-service/                 # Service gửi thông báo Email/SMS khách hàng (Port 8085)
 │   ├── pom.xml
 │   └── src/main/java/com/ecommerce/notification/
+├── voucher-service/                      # Service quản lý Voucher & Saga Compensation (Port 8086)
+│   ├── pom.xml
+│   └── src/main/java/com/ecommerce/voucher/
 └── api-gateway/                          # Cổng Gateway & Web Mission Control Dashboard (Port 8080)
     ├── pom.xml
     └── src/main/resources/static/index.html

@@ -3,27 +3,22 @@ package com.ecommerce.payment.service;
 import com.ecommerce.common.constant.KafkaTopicConstants;
 import com.ecommerce.common.event.InventoryReservedEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class PaymentEventListener {
-
-    private static final Logger log = LoggerFactory.getLogger(PaymentEventListener.class);
 
     private final PaymentService paymentService;
     private final ObjectMapper objectMapper;
 
-    public PaymentEventListener(PaymentService paymentService, ObjectMapper objectMapper) {
-        this.paymentService = paymentService;
-        this.objectMapper = objectMapper;
-    }
-
     /**
-     * Lắng nghe khi Kho đã giữ hàng thành công -> Tiến hành trừ tiền
+     * Listens for InventoryReservedEvent -> Proceed to charge customer
      */
     @KafkaListener(topics = KafkaTopicConstants.TOPIC_INVENTORY_RESERVED, groupId = "payment-service-group")
     public void onInventoryReserved(ConsumerRecord<String, String> record) {
@@ -31,8 +26,7 @@ public class PaymentEventListener {
             InventoryReservedEvent event = objectMapper.readValue(record.value(), InventoryReservedEvent.class);
             paymentService.processPayment(event);
         } catch (Exception e) {
-            log.error("Lỗi khi xử lý InventoryReservedEvent trong Payment Service: {}", e.getMessage());
+            log.error("Error processing InventoryReservedEvent in Payment Service: {}", e.getMessage());
         }
     }
 }
-

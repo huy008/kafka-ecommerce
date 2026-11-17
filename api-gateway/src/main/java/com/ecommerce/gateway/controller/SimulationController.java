@@ -2,6 +2,7 @@ package com.ecommerce.gateway.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -14,7 +15,8 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/gateway/simulation")
-@Tag(name = "Saga Simulation API", description = "Các kịch bản thực chiến mô phỏng Event-Driven Saga Choreography")
+@RequiredArgsConstructor
+@Tag(name = "Saga Simulation API", description = "Real-world scenarios simulating Event-Driven Saga Choreography")
 public class SimulationController {
 
     private final RestTemplate restTemplate;
@@ -22,16 +24,12 @@ public class SimulationController {
     @Value("${services.order-service}")
     private String orderServiceUrl;
 
-    public SimulationController(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
-
     /**
-     * KỊCH BẢN 1 (HAPPY PATH): Đặt hàng thành công trọn vẹn Saga
+     * SCENARIO 1 (HAPPY PATH): Successful end-to-end Saga workflow.
      * Order -> Inventory Reserved -> Payment Success -> Order Confirmed -> Email/SMS Notif
      */
     @PostMapping("/happy-path")
-    @Operation(summary = "Kịch bản 1 (Happy Path): Đặt hàng thành công trọn vẹn Saga")
+    @Operation(summary = "Scenario 1 (Happy Path): Successful end-to-end Saga order placement")
     public ResponseEntity<Map<String, Object>> simulateHappyPath() {
         Map<String, Object> req = new HashMap<>();
         req.put("customerId", "VIP_CUSTOMER_" + (int)(Math.random() * 900 + 100));
@@ -55,11 +53,11 @@ public class SimulationController {
     }
 
     /**
-     * KỊCH BẢN 2 (INVENTORY FAILURE): Sản phẩm hết hàng trong kho
-     * Order -> Inventory Fails -> Order FAILED_OUT_OF_STOCK -> Không gọi thanh toán
+     * SCENARIO 2 (INVENTORY FAILURE): Out of stock scenario.
+     * Order -> Inventory Fails -> Order FAILED_OUT_OF_STOCK -> Payment not triggered
      */
     @PostMapping("/out-of-stock")
-    @Operation(summary = "Kịch bản 2: Kho hết hàng (Inventory Failure)")
+    @Operation(summary = "Scenario 2: Out of stock (Inventory Failure)")
     public ResponseEntity<Map<String, Object>> simulateOutOfStock() {
         Map<String, Object> req = new HashMap<>();
         req.put("customerId", "USER_STOCK_CHECK");
@@ -77,17 +75,17 @@ public class SimulationController {
         Map<String, Object> res = new HashMap<>();
         res.put("status", "SAGA_TRIGGERED");
         res.put("scenario", "2. Inventory Failure");
-        res.put("flow", "OrderService (PENDING) -> InventoryService (OUT_OF_STOCK) -> OrderService (FAILED_OUT_OF_STOCK) -> NotificationService (Thông báo hết hàng)");
+        res.put("flow", "OrderService (PENDING) -> InventoryService (OUT_OF_STOCK) -> OrderService (FAILED_OUT_OF_STOCK) -> NotificationService (Out of stock notice)");
         res.put("orderResponse", response.getBody());
         return ResponseEntity.ok(res);
     }
 
     /**
-     * KỊCH BẢN 3 (SAGA COMPENSATING ROLLBACK): Thanh toán thất bại -> Tự động xả kho bù trừ
-     * Order -> Inventory Reserved -> Payment Fails -> Lệnh Bù Trừ (Release Stock) -> Order FAILED_PAYMENT
+     * SCENARIO 3 (SAGA COMPENSATING ROLLBACK): Payment failure triggers automatic warehouse compensation.
+     * Order -> Inventory Reserved -> Payment Fails -> Compensation (Release Stock) -> Order FAILED_PAYMENT
      */
     @PostMapping("/payment-failure")
-    @Operation(summary = "Kịch bản 3 (Saga Rollback): Thanh toán lỗi -> Tự động xả kho bù trừ")
+    @Operation(summary = "Scenario 3 (Saga Rollback): Payment failure -> Triggers compensating stock release")
     public ResponseEntity<Map<String, Object>> simulatePaymentFailure() {
         Map<String, Object> req = new HashMap<>();
         req.put("customerId", "FAIL_PAYMENT_USER");
@@ -105,17 +103,17 @@ public class SimulationController {
         Map<String, Object> res = new HashMap<>();
         res.put("status", "SAGA_TRIGGERED");
         res.put("scenario", "3. Saga Compensating Rollback");
-        res.put("flow", "Order (PENDING) -> Kho giữ hàng -> Thanh toán bị từ chối -> Kích hoạt lệnh BÙ TRỪ: Kho xả hàng hoàn lại tồn kho -> Order (FAILED_PAYMENT)");
+        res.put("flow", "Order (PENDING) -> Inventory reserved -> Payment rejected -> COMPENSATING TRIGGER: Stock released back -> Order (FAILED_PAYMENT)");
         res.put("orderResponse", response.getBody());
         return ResponseEntity.ok(res);
     }
 
     /**
-     * KỊCH BẢN 4 (REAL-TIME FRAUD DETECTION): Hacker đặt dồn dập 4 đơn / 1 giây
-     * 4 đơn -> Kafka Streams Window 30s -> Fraud Alert -> Đơn hàng bị khóa FRAUD_SUSPECTED
+     * SCENARIO 4 (REAL-TIME FRAUD DETECTION): Rapid order placement within 1 second.
+     * 4 orders -> Kafka Streams 30s Window -> Fraud Alert -> Order locked as FRAUD_SUSPECTED
      */
     @PostMapping("/fraud-attack")
-    @Operation(summary = "Kịch bản 4: Hacker tấn công SPAM đơn hàng -> Kafka Streams phát hiện")
+    @Operation(summary = "Scenario 4: High-frequency order burst -> Kafka Streams real-time fraud alert")
     public ResponseEntity<Map<String, Object>> simulateFraudAttack(@RequestParam(defaultValue = "hacker_99") String customerId) {
         List<Map> createdOrders = new ArrayList<>();
 
@@ -142,8 +140,7 @@ public class SimulationController {
         res.put("scenario", "4. Kafka Streams Real-time Fraud Detection");
         res.put("targetUser", customerId);
         res.put("ordersSpawned", createdOrders);
-        res.put("flow", "4 đơn phát sinh trong 1s -> Kafka Streams Sliding Window 30s gom nhóm -> Phát sinh FraudAlertEvent -> Order Service tự động khóa cảnh báo FRAUD_SUSPECTED!");
+        res.put("flow", "4 orders spawned in 1s -> Kafka Streams 30s sliding window aggregated -> FraudAlertEvent generated -> Order Service flags and locks as FRAUD_SUSPECTED!");
         return ResponseEntity.ok(res);
     }
 }
-

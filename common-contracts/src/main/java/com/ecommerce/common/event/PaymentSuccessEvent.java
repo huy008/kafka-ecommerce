@@ -1,8 +1,17 @@
 package com.ecommerce.common.event;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class PaymentSuccessEvent implements Serializable {
 
     private String eventId;
@@ -11,11 +20,8 @@ public class PaymentSuccessEvent implements Serializable {
     private String customerId;
     private Double amount;
     private String paymentMethod;
-    private String timestamp;
-
-    public PaymentSuccessEvent() {
-        this.timestamp = LocalDateTime.now().toString();
-    }
+    @Builder.Default
+    private String timestamp = LocalDateTime.now().toString();
 
     public PaymentSuccessEvent(String eventId, String paymentId, String orderNumber, String customerId,
                                Double amount, String paymentMethod) {
@@ -27,26 +33,4 @@ public class PaymentSuccessEvent implements Serializable {
         this.paymentMethod = paymentMethod;
         this.timestamp = LocalDateTime.now().toString();
     }
-
-    public String getEventId() { return eventId; }
-    public void setEventId(String eventId) { this.eventId = eventId; }
-
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
-
-    public String getOrderNumber() { return orderNumber; }
-    public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
-
-    public String getCustomerId() { return customerId; }
-    public void setCustomerId(String customerId) { this.customerId = customerId; }
-
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
-
-    public String getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
-
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
 }
-
