@@ -35,20 +35,35 @@ services:
 
   # -------------------------------------------------------------
   # 2. Kafka UI: Quản trị Topics, Consumer Groups, Messages trực quan
-  # Truy cập: http://localhost:8085
+  # Truy cập: http://localhost:8089
   # -------------------------------------------------------------
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: ecommerce-kafka-ui
     restart: unless-stopped
     ports:
-      - "8085:8080"
+      - "8089:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: ecommerce-microservices-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     depends_on:
       kafka:
         condition: service_healthy
+    networks:
+      - ecommerce-network
+
+  # -------------------------------------------------------------
+  # 3. Distributed Tracing: Zipkin Server
+  # UI & API: http://localhost:9411
+  # -------------------------------------------------------------
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: ecommerce-zipkin
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+    environment:
+      - STORAGE_TYPE=mem
     networks:
       - ecommerce-network
 

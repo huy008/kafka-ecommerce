@@ -139,7 +139,10 @@ Mở từng cửa sổ PowerShell (hoặc chạy trong IDE) và khởi động c
 # 5. Notification Service (Port 8085)
 .\mvnw.cmd spring-boot:run -pl notification-service
 
-# 6. API Gateway & Dashboard (Port 8080)
+# 6. Voucher Service (Port 8086)
+.\mvnw.cmd spring-boot:run -pl voucher-service
+
+# 7. API Gateway & Dashboard (Port 8080)
 .\mvnw.cmd spring-boot:run -pl api-gateway
 ```
 
@@ -155,7 +158,29 @@ Mở từng cửa sổ PowerShell (hoặc chạy trong IDE) và khởi động c
 | 💳 **Payment Service** | `8083` | [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html) | Quản lý Thanh toán & Giao dịch |
 | 🌊 **Fraud Detection Service** | `8084` | [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html) | Kafka Streams Engine phân tích gian lận 30s |
 | 📩 **Notification Service** | `8085` | [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html) | Thông báo Email/SMS khách hàng |
-| 📊 **Kafka UI Cluster** | `8085` | [http://localhost:8085](http://localhost:8085) | Giám sát Topics, Consumer Groups, Partitions, Offsets |
+| 🏷️ **Voucher Service** | `8086` | [http://localhost:8086/swagger-ui.html](http://localhost:8086/swagger-ui.html) | Quản lý Voucher & Khuyến mãi |
+| 📊 **Kafka UI Cluster** | `8089` | [http://localhost:8089](http://localhost:8089) | Giám sát Topics, Consumer Groups, Partitions, Offsets |
+| 🔍 **Zipkin Distributed Tracing** | `9411` | [http://localhost:9411](http://localhost:9411) | Truy vết luồng sự kiện phân tán End-to-End (TraceId / SpanId) |
+
+---
+
+## 🔍 6. Chuẩn Enterprise Distributed Tracing (Java 21 / Spring Boot 3.x)
+
+Hệ thống được thiết kế theo tiêu chuẩn công nghiệp hiện đại nhất cho quan sát phân tán (**Distributed Observability**):
+
+1. **Thư viện chuẩn (Micrometer Tracing + OpenTelemetry Bridge)**:
+   - Sử dụng `micrometer-tracing-bridge-otel` và `opentelemetry-exporter-zipkin`.
+   - Chuẩn định dạng ngữ cảnh W3C TraceContext: `traceparent: 00-{traceId}-{spanId}-{flags}`.
+2. **Tự động liên kết qua Kafka (Spring Kafka Observation)**:
+   - Kích hoạt `spring.kafka.template.observation-enabled=true` và `spring.kafka.listener.observation-enabled=true`.
+   - Khi gửi/nhận message qua Kafka, `traceparent` tự động được đóng gói vào Kafka Record Headers.
+3. **Giải pháp Transactional Outbox Context Propagation**:
+   - Khi API Gateway gửi `POST /api/orders`, một `traceId` được sinh ra.
+   - `OrderService` lưu vết `traceparent` vào bảng `outbox_events` cùng transaction với đơn hàng.
+   - Khi `OutboxPublisher` chạy nền (background worker), nó lấy `traceparent` gốc nạp vào Kafka Header thay vì sinh trace mới, giúp luồng trace xuyên suốt từ HTTP REST đến tận Kafka Consumer và các bước bù trừ Saga!
+4. **Tương quan Log (MDC Log Correlation)**:
+   - Mọi log console đều chứa pattern chuẩn: `INFO [order-service,traceId,spanId]`.
+   - Bạn chỉ cần copy `traceId` từ terminal dán vào Zipkin (`http://localhost:9411`) để xem toàn bộ hành trình sự kiện (waterfall timeline).
 
 ---
 

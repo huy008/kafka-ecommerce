@@ -45,7 +45,8 @@ Write-Host "`n[3/3] Hoàn tất quá trình khởi động!" -ForegroundColor Gr
 Write-Host "==============================================================================" -ForegroundColor Cyan
 Write-Host "🌐 MISSION CONTROL WEB DASHBOARD: http://localhost:8080" -ForegroundColor Green
 Write-Host "📖 SWAGGER DOCUMENTATION:        http://localhost:8080/swagger-ui.html" -ForegroundColor Green
-Write-Host "📊 KAFKA UI DASHBOARD:            http://localhost:8085" -ForegroundColor Green
+Write-Host "📊 KAFKA UI DASHBOARD:            http://localhost:8089" -ForegroundColor Green
+Write-Host "🔍 ZIPKIN DISTRIBUTED TRACING:    http://localhost:9411" -ForegroundColor Green
 Write-Host "==============================================================================" -ForegroundColor Cyan
 Write-Host "💡 Để dừng toàn bộ các service, hãy chạy: .\stop-all.ps1" -ForegroundColor Gray
 

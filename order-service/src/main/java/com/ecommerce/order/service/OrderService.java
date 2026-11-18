@@ -8,8 +8,9 @@ import com.ecommerce.order.repository.OrderRepository;
 import com.ecommerce.order.repository.OutboxEventRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.tracing.Tracer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +20,29 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
+    private final Tracer tracer;
+
+    @Autowired
+    public OrderService(OrderRepository orderRepository,
+                        OutboxEventRepository outboxEventRepository,
+                        ObjectMapper objectMapper,
+                        @Autowired(required = false) Tracer tracer) {
+        this.orderRepository = orderRepository;
+        this.outboxEventRepository = outboxEventRepository;
+        this.objectMapper = objectMapper;
+        this.tracer = tracer;
+    }
+
+    public OrderService(OrderRepository orderRepository,
+                        OutboxEventRepository outboxEventRepository,
+                        ObjectMapper objectMapper) {
+        this(orderRepository, outboxEventRepository, objectMapper, null);
+    }
 
     /**
      * TRANSACTIONAL OUTBOX PATTERN:
@@ -82,6 +100,15 @@ public class OrderService {
                     "ORDER_CREATED",
                     jsonPayload
             );
+
+            // Distributed Tracing Context Propagation (W3C traceparent: 00-{traceId}-{spanId}-{flags})
+            if (tracer != null && tracer.currentSpan() != null) {
+                var currentSpan = tracer.currentSpan();
+                String traceparent = "00-" + currentSpan.context().traceId() + "-" + currentSpan.context().spanId() + "-01";
+                outboxEvent.setTraceparent(traceparent);
+                log.info("🔍 [Distributed Tracing] Attached Traceparent ({}) to Outbox Event {}", traceparent, eventId);
+            }
+
             outboxEventRepository.save(outboxEvent);
 
             log.info("💾 [Transactional Outbox] Successfully persisted Order & Outbox Event ({}) to Database!", eventId);

@@ -10,6 +10,8 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+    listener:
+      observation-enabled: true
     consumer:
       group-id: notification-service-group
       auto-offset-reset: earliest
@@ -20,7 +22,21 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
 logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
   level:
     com.ecommerce: INFO
     org.apache.kafka: WARN

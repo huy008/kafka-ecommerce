@@ -7,12 +7,14 @@ import com.ecommerce.order.repository.OutboxEventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -49,11 +51,17 @@ public class OutboxPublisher {
                 OrderCreatedEvent dto = objectMapper.readValue(outbox.getPayload(), OrderCreatedEvent.class);
                 String partitionKey = dto.getCustomerId();
 
-                SendResult<String, String> result = kafkaTemplate.send(
+                ProducerRecord<String, String> record = new ProducerRecord<>(
                         KafkaTopicConstants.TOPIC_ORDER_CREATED,
                         partitionKey,
                         outbox.getPayload()
-                ).get(5, TimeUnit.SECONDS);
+                );
+
+                if (outbox.getTraceparent() != null && !outbox.getTraceparent().isBlank()) {
+                    record.headers().add("traceparent", outbox.getTraceparent().getBytes(StandardCharsets.UTF_8));
+                }
+
+                SendResult<String, String> result = kafkaTemplate.send(record).get(5, TimeUnit.SECONDS);
 
                 outbox.setStatus("SENT");
                 outbox.setSentAt(LocalDateTime.now());

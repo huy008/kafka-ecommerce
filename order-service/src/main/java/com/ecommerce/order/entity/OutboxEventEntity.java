@@ -36,6 +36,9 @@ public class OutboxEventEntity {
     @Column(nullable = false)
     private String payload;
 
+    @Column(name = "traceparent")
+    private String traceparent;
+
     // Statuses: PENDING, SENT, FAILED_MAX_RETRIES
     @Column(nullable = false)
     @Builder.Default

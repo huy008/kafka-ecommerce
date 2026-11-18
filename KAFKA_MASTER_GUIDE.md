@@ -11,6 +11,7 @@
    - 3.2 Kafka Transactions & Exactly-Once Semantics (EOS)
    - 3.3 Transactional Outbox Pattern (Xử lý bài toán Dual-Write)
    - 3.4 Dead Letter Queue (DLQ / DLT Pattern) & Exponential Backoff
+   - 3.5 Distributed Tracing & W3C TraceContext Propagation (Micrometer + OpenTelemetry + Zipkin)
 4. [Xử Lý Luồng Dữ Liệu Thời Gian Thực (Kafka Streams)](#4-xử-lý-luồng-dữ-liệu-thời-gian-thực-kafka-streams)
    - 4.1 KStream vs KTable vs GlobalKTable
    - 4.2 Các loại Cửa Sổ Thời Gian (Windowing)
@@ -181,6 +182,30 @@ spring:
   5. Có công cụ **redrive/replay** sau khi sửa dữ liệu hoặc code, đồng thời giữ idempotency.
 
 > Retry topic hoặc DLT có thể làm các event sau vượt qua event lỗi và phá ordering theo key. Nếu nghiệp vụ yêu cầu strict ordering, phải chọn chiến lược block partition, state machine hoặc quarantine theo key.
+
+### 3.5 Distributed Tracing & W3C TraceContext Trong Hệ Thống Phân Tán (Java 21 / Spring Boot 3)
+Trong kiến trúc Event-Driven Microservices với hàng chục bước xử lý không đồng bộ qua Kafka, nếu không có **Distributed Tracing**, việc tìm kiếm nguyên nhân khi một đơn hàng bị chậm hoặc thất bại là bất khả thi.
+
+1. **Chuẩn W3C TraceContext Header:**
+   - Định dạng chuẩn toàn cầu: `traceparent: 00-{traceId}-{spanId}-{traceFlags}`
+     - `version`: `00`
+     - `traceId`: 16-byte hex (32 ký tự), định danh duy nhất xuyên suốt cả luồng nghiệp vụ.
+     - `spanId`: 8-byte hex (16 ký tự), định danh bước xử lý hiện tại (hop).
+     - `traceFlags`: `01` (được sample/thu thập dữ liệu trace).
+2. **Công nghệ chuẩn trên Java 17/21 (Spring Boot 3.x):**
+   - Không còn dùng `Spring Cloud Sleuth` (đã deprecated từ Spring Boot 3.0).
+   - Thay vào đó là **Micrometer Tracing** làm facade trừu tượng, kết hợp cùng **OpenTelemetry Bridge** (`micrometer-tracing-bridge-otel`) và **Zipkin Exporter** (`opentelemetry-exporter-zipkin`).
+3. **Cơ chế lan truyền ngữ cảnh qua Kafka (Kafka Header Propagation):**
+   - Khi kích hoạt:
+     ```yaml
+     spring.kafka.template.observation-enabled: true
+     spring.kafka.listener.observation-enabled: true
+     ```
+   - `KafkaTemplate` tự động chèn `traceparent` vào `ProducerRecord.headers()`.
+   - `@KafkaListener` tự động trích xuất `traceparent` từ header, khôi phục `traceId` và tạo một child `spanId`.
+4. **Bài toán kinh điển: Outbox Pattern phá vỡ Trace Context & Giải pháp:**
+   - *Vấn đề:* Khi `OrderService` lưu vào DB rồi kết thúc request HTTP, background poller (`@Scheduled`) của Outbox chạy trên một thread tách biệt hoàn toàn không có HTTP trace context $\rightarrow$ nếu không can thiệp, Outbox sẽ gửi lên Kafka với một `traceId` ngẫu nhiên mới, làm đứt gãy vết trace của người dùng.
+   - *Giải pháp:* Lưu trường `traceparent` ngay trong bảng `outbox_events` lúc tạo đơn. Background worker khi publish sẽ gán `traceparent` gốc vào Kafka Record Header $\rightarrow$ Khôi phục 100% tính toàn vẹn của chuỗi trace từ Web UI $\rightarrow$ Gateway $\rightarrow$ Order $\rightarrow$ Outbox $\rightarrow$ Kafka $\rightarrow$ Inventory $\rightarrow$ Payment $\rightarrow$ Saga Compensation!
 
 ---
 
