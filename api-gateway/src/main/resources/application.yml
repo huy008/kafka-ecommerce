@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: api-gateway
+  threads:
+    virtual:
+      enabled: true
 
 # Địa chỉ các microservices nội bộ
 services:
